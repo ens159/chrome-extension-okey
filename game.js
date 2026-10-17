@@ -28,11 +28,13 @@ function refresh() { render(); save(); }                                  // bot
 function drawDeck(p, at) { const t = S.deck.pop(); if (p === 0) t.s = slotFor(at); S.hands[p].push(t); S.phase = 'discard'; }
 function takeDiscard(p, at) { const t = S.discards[prev(p)].pop(); if (p === 0) t.s = slotFor(at); S.hands[p].push(t); S.phase = 'discard'; }
 function discard(p, i) {
+  if (i < 0 || i >= S.hands[p].length) return false;                     // splice(-1) son taşı atardı
   const t = S.hands[p].splice(i, 1)[0];
   S.discards[p].push(t); anim = p;
-  if (Okey.canWin(S.hands[p], S.okey)) { S.over = true; S.winner = p; return; }
+  if (Okey.canWin(S.hands[p], S.okey)) { S.over = true; S.winner = p; return true; }
   S.turn = (p + 1) % 4; S.phase = 'draw';
   if (!S.deck.length) { S.over = true; S.winner = -1; }
+  return true;
 }
 function botPlay() {
   const p = S.turn, h = S.hands[p];
@@ -79,6 +81,7 @@ document.addEventListener('dragstart', e => {
   const el = e.target.closest('[data-k]'); if (!el) return;
   drag = { k: el.dataset.k, id: +el.dataset.id }; e.dataTransfer.setData('text/plain', 'x');
 });
+document.addEventListener('dragend', () => { drag = null; });            // ıstaka dışına bırakılırsa eski sürükleme kalmasın
 document.addEventListener('dragover', e => { if (e.target.closest('.cell, #d0')) e.preventDefault(); });
 document.addEventListener('drop', e => {
   if (!drag || !S || S.over) return;
@@ -87,12 +90,13 @@ document.addEventListener('drop', e => {
   if (cell) {
     const at = +cell.dataset.s;
     if (k === 'rack') {                                                   // ıstakada taş taşı / yer değiştir
-      const t = me.find(x => x.id === id), o = me.find(x => x.s === at && x !== t);
+      const t = me.find(x => x.id === id); if (!t) return;
+      const o = me.find(x => x.s === at && x !== t);
       if (o) o.s = t.s; t.s = at; refresh();
     } else if (mine && S.phase === 'draw' && k === 'deck') { drawDeck(0, at); next(); }
     else if (mine && S.phase === 'draw' && k === 'disc') { takeDiscard(0, at); next(); }
   } else if (e.target.closest('#d0') && k === 'rack' && mine && S.phase === 'discard') {
-    discard(0, me.findIndex(x => x.id === id)); next();                   // taşı kendi atma alanına bırak
+    if (discard(0, me.findIndex(x => x.id === id))) next();               // taşı kendi atma alanına bırak
   }
 });
 document.addEventListener('click', e => {                                 // tek tık: çekme kısayolu
@@ -102,7 +106,7 @@ document.addEventListener('click', e => {                                 // tek
 });
 document.addEventListener('dblclick', e => {                              // çift tık: taşı at
   const el = e.target.closest('#rack .t');
-  if (el && S && !S.over && S.turn === 0 && S.phase === 'discard') { discard(0, S.hands[0].findIndex(t => t.id === +el.dataset.id)); next(); }
+  if (el && S && !S.over && S.turn === 0 && S.phase === 'discard') { if (discard(0, S.hands[0].findIndex(t => t.id === +el.dataset.id))) next(); }
 });
 $('nw').onclick = newGame;
 chrome.storage.local.get('okey', r => {
