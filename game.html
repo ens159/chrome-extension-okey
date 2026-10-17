@@ -2,7 +2,7 @@
 <html lang="tr"><head><meta charset="utf-8"><title>Okey</title><link rel="stylesheet" href="style.css"></head>
 <body>
 <header id="top-bar">
-  <div class="brand"><span class="logo">7</span><span id="title">Okey</span></div>
+  <div class="brand"><span class="logo">7</span><span id="title" title="Adını değiştirmek için tıkla">Okey</span><input id="title-input" maxlength="28" spellcheck="false" hidden></div>
   <div class="actions"><button id="nw" class="btn ghost" title="Yeni oyun">Yeni Oyun</button></div>
 </header>
 <main id="table">
@@ -12,5 +12,5 @@
   <div id="result" class="overlay" hidden><div class="card"><div id="res-title"></div><div id="res-sub"></div><button id="again" class="btn primary">Yeni Oyun</button></div></div>
 </main>
 <div id="rack"></div>
-<script src="logic.js"></script><script src="game.js"></script>
+<script src="logic.js"></script><script src="store.js"></script><script src="game.js"></script>
 </body></html>

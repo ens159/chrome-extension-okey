@@ -1,7 +1,7 @@
 (() => {
 const COLS = 16;                                                          // ıstaka: 2 satır × 16 hücre
 const FLY = [[-30, 90], [0, 130], [170, 0], [0, -130]];                   // atılan taşın geldiği yön (animasyon)
-let S = null, timer = null, anim = null, drag = null;
+let S = null, cur = null, timer = null, anim = null, drag = null;        // cur: açık kaydın bilgisi {id, name, created}
 const $ = id => document.getElementById(id);
 const prev = p => (p + 3) % 4, last = a => a[a.length - 1];
 
@@ -10,16 +10,24 @@ function freeSlot() { const u = new Set(S.hands[0].map(t => t.s)); for (let i = 
 function slotFor(at) { return at != null && !S.hands[0].some(t => t.s === at) ? at : freeSlot(); }
 function layout() { S.hands[0].forEach((t, i) => t.s = (i % 2) * COLS + (i >> 1)); }
 
-function newGame() {
+async function newGame() {
   const deck = Okey.newDeck();
   const ind = deck.splice(deck.findIndex(t => !t.fake), 1)[0];            // gösterge sahte okey olamaz
   const okey = { c: ind.c, n: ind.n % 13 + 1 };
   const starter = Math.floor(Math.random() * 4);
   const hands = [0, 1, 2, 3].map(p => deck.splice(0, p === starter ? 15 : 14));
+  const taken = (await Store.list()).map(sv => sv.name);
   S = { deck, hands, discards: [[], [], [], []], ind, okey, turn: starter, phase: 'discard', over: false, winner: null };
-  layout(); next();
+  cur = { id: Store.newId(), name: Store.randomName(taken), created: Date.now() };
+  Store.setCurrent(cur.id); showTitle(); layout(); next();
 }
-function save() { if (S.over) chrome.storage.local.remove('okey'); else chrome.storage.local.set({ okey: S }); }
+function openSave(sv) {
+  clearTimeout(timer); anim = null;
+  S = sv.state; cur = { id: sv.id, name: sv.name, created: sv.created };
+  if (S.hands[0].some(t => t.s == null)) layout();
+  Store.setCurrent(cur.id); showTitle(); next();
+}
+function save() { if (cur) Store.put({ ...cur, updated: Date.now(), state: S }); }
 function next() {
   clearTimeout(timer); render(); anim = null; save();
   if (!S.over && S.turn !== 0) timer = setTimeout(botPlay, 1000);
@@ -116,8 +124,19 @@ document.addEventListener('dblclick', e => {                              // çi
   const el = e.target.closest('#rack .t');
   if (el && S && !S.over && S.turn === 0 && S.phase === 'discard') { if (discard(0, S.hands[0].findIndex(t => t.id === +el.dataset.id))) next(); }
 });
+// ---- oyun adı: tıklayınca düzenlenir ----
+function showTitle() { $('title').textContent = cur.name; $('title').hidden = false; $('title-input').hidden = true; }
+$('title').onclick = () => {
+  const inp = $('title-input'); inp.value = cur.name;
+  $('title').hidden = true; inp.hidden = false; inp.focus(); inp.select();
+};
+$('title-input').onkeydown = e => { if (e.key === 'Enter') e.target.blur(); else if (e.key === 'Escape') { e.target.value = cur.name; e.target.blur(); } };
+$('title-input').onblur = e => { const v = e.target.value.trim(); if (v && v !== cur.name) { cur.name = v; save(); } showTitle(); };
+
 $('nw').onclick = $('again').onclick = newGame;
-chrome.storage.local.get('okey', r => {
-  if (r.okey && !r.okey.over && Okey.validState(r.okey)) { S = r.okey; if (S.hands[0].some(t => t.s == null)) layout(); next(); } else newGame();
-});
+(async () => {                                                            // açılışta son oyuna kaldığı yerden devam
+  await Store.migrate(Okey.validState);
+  const id = await Store.currentId(), sv = id && await Store.load(id);
+  if (sv && Okey.validState(sv.state)) openSave(sv); else newGame();
+})();
 })();
