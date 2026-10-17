@@ -1,7 +1,8 @@
 (() => {
 const COLS = 16;                                                          // ıstaka: 2 satır × 16 hücre
-const FLY = [[-30, 90], [0, 130], [170, 0], [0, -130]];                   // atılan taşın geldiği yön (animasyon)
-let S = null, cur = null, timer = null, anim = null, drag = null;        // cur: açık kaydın bilgisi {id, name, created}
+const FLY = [[-40, 120], [0, 150], [210, 0], [0, -150]];                  // atılan taşın geldiği yön (animasyon)
+const BOTS = [null, ['🦊', 'Tilki'], ['🦉', 'Baykuş'], ['🐻', 'Ayı']];           // sağ, üst, sol
+let S = null, cur = null, timer = null, anim = null, drag = null, sel = null;   // cur: açık kayıt {id, name, created}; sel: tıklanarak seçilen taş
 const $ = id => document.getElementById(id);
 const prev = p => (p + 3) % 4, last = a => a[a.length - 1];
 
@@ -11,7 +12,7 @@ function slotFor(at) { return at != null && !S.hands[0].some(t => t.s === at) ? 
 function layout() { S.hands[0].forEach((t, i) => t.s = (i % 2) * COLS + (i >> 1)); }
 
 async function newGame() {
-  clearTimeout(timer); cur = null;                                        // eski oyunun bekleyen bot hamlesi/kaydı araya girmesin
+  clearTimeout(timer); cur = null; sel = null;                            // eski oyunun bekleyen bot hamlesi/kaydı araya girmesin
   const deck = Okey.newDeck();
   const ind = deck.splice(deck.findIndex(t => !t.fake), 1)[0];            // gösterge sahte okey olamaz
   const okey = { c: ind.c, n: ind.n % 13 + 1 };
@@ -23,7 +24,7 @@ async function newGame() {
   Store.setCurrent(cur.id); showTitle(); layout(); next();
 }
 function openSave(sv) {
-  clearTimeout(timer); anim = null;
+  clearTimeout(timer); anim = null; sel = null;
   S = sv.state; cur = { id: sv.id, name: sv.name, created: sv.created };
   if (S.hands[0].some(t => t.s == null)) layout();
   Store.setCurrent(cur.id); showTitle(); next();
@@ -60,18 +61,22 @@ function botPlay() {
 // ---- çizim ----
 function tileHTML(t, k, cls = '', sty = '') {
   const f = Okey.face(t, S.okey);
-  return `<div class="t ${Okey.isOk(t, S.okey) ? 'ok' : ''} ${cls}" ${k ? `draggable="true" data-k="${k}" data-id="${t.id}"` : ''} style="color:var(--c${f.c});${sty}">${t.fake ? '★' : t.n}</div>`;
+  return `<div class="t ${Okey.isOk(t, S.okey) ? 'ok' : ''} ${t.fake ? 'fake' : ''} ${cls}" ${k ? `draggable="true" data-k="${k}" data-id="${t.id}"` : ''} style="color:var(--c${f.c});${sty}">${t.fake ? '★' : t.n}<i></i></div>`;
 }
 function render() {
   const me = S.hands[0], mine = S.turn === 0 && !S.over;
   const canDraw = mine && S.phase === 'draw', canDisc = mine && S.phase === 'discard';
   const w = canDisc ? Okey.findWin(me, S.okey) : -1, wid = w >= 0 ? me[w].id : -1;
   for (const [id, p] of [['right', 1], ['top', 2], ['left', 3]]) {
-    $(id).innerHTML = `<div class="avatar">B${p}</div><div><b>Bot ${p}</b><small>${S.hands[p].length} taş</small></div>`;
+    const thinking = S.turn === p && !S.over;
+    $(id).innerHTML = `<div class="avatar">${BOTS[p][0]}</div><div class="plate"><b>${BOTS[p][1]}</b><small>${thinking ? 'düşünüyor…' : S.hands[p].length + ' taş'}</small></div>`;
     $(id).classList.toggle('turn', S.turn === p && !S.over);
   }
-  $('center').innerHTML = `<div class="pile">${tileHTML(S.ind)}<span class="label">Gösterge</span></div>` +
-    `<div class="pile">${S.deck.length ? `<div class="t back${canDraw ? ' glow' : ''}" id="deck"${canDraw ? ' draggable="true" data-k="deck" data-id="0"' : ''}></div><span class="count">${S.deck.length}</span>` : '<div class="dz"></div>'}<span class="label">Deste</span></div>`;
+  const okeyTile = { id: -1, c: S.okey.c, n: S.okey.n, fake: false };
+  $('center').innerHTML =
+    `<div class="pile"><div class="stack">${S.deck.length ? `${S.deck.length > 2 ? '<div class="t back"></div><div class="t back"></div>' : ''}<div class="t back${canDraw ? ' glow' : ''}" id="deck"${canDraw ? ' draggable="true" data-k="deck" data-id="0"' : ''}></div><span class="count">${S.deck.length}</span>` : '<div class="dz"></div>'}</div><span class="label">Deste</span></div>` +
+    `<div class="pile">${tileHTML(S.ind)}<span class="label">Gösterge</span></div>` +
+    `<div class="okey-info">${tileHTML(okeyTile)}<span class="label" style="margin:0">Okey</span></div>`;
   for (let p = 0; p < 4; p++) {
     const d = last(S.discards[p]), can = canDraw && p === 3;
     $('d' + p).innerHTML = d ? tileHTML(d, can ? 'disc' : '', (can ? 'glow ' : '') + (anim === p ? 'fly' : ''), `--fx:${FLY[p][0]}px;--fy:${FLY[p][1]}px`) : '';
@@ -80,15 +85,16 @@ function render() {
   let r = '';
   for (let row = 0; row < 2; row++) {
     r += '<div class="rr">';
-    for (let c = 0; c < COLS; c++) { const s = row * COLS + c, t = me.find(x => x.s === s); r += `<div class="cell" data-s="${s}">${t ? tileHTML(t, 'rack', t.id === wid ? 'win' : '') : ''}</div>`; }
+    for (let c = 0; c < COLS; c++) { const s = row * COLS + c, t = me.find(x => x.s === s); r += `<div class="cell" data-s="${s}">${t ? tileHTML(t, 'rack', (t.id === wid ? 'win ' : '') + (t.id === sel ? 'sel' : '')) : ''}</div>`; }
     r += '</div>';
   }
   $('rack').innerHTML = r;
-  $('hint').textContent = S.over ? '' : canDraw ? 'Desteden ya da soldan taş çek' : canDisc ? (w >= 0 ? 'Parlayan taşı atarsan bitiyorsun!' : 'Atmak için taşı sağ alttaki alana sürükle')
-    : `Bot ${S.turn} oynuyor…`;
+  const hint = S.over ? '' : canDraw ? 'Sıra sende: desteye ya da soldaki taşa tıkla' : canDisc ? (w >= 0 ? 'Parlayan taşı atarsan eli bitiriyorsun!' : 'Bir taş seç, sonra “At” alanına tıkla (ya da sürükle)')
+    : `${BOTS[S.turn][1]} oynuyor…`;
+  $('hint').innerHTML = hint ? `<span class="${mine ? 'go' : ''}">${hint}</span>` : '';
   $('result').hidden = !S.over;
   if (S.over) {
-    $('res-title').textContent = S.winner === 0 ? '🎉 Kazandın!' : S.winner > 0 ? `Bot ${S.winner} kazandı` : 'Berabere';
+    $('res-title').textContent = S.winner === 0 ? '🎉 Kazandın!' : S.winner > 0 ? `${BOTS[S.winner][0]} ${BOTS[S.winner][1]} kazandı` : 'Berabere';
     $('res-sub').textContent = S.winner === -1 ? 'Deste bitti.' : S.winner === 0 ? 'Eli bitirdin.' : 'Bir dahaki sefere!';
   }
 }
@@ -113,17 +119,24 @@ document.addEventListener('drop', e => {
     } else if (mine && S.phase === 'draw' && k === 'deck') { drawDeck(0, at); next(); }
     else if (mine && S.phase === 'draw' && k === 'disc') { takeDiscard(0, at); next(); }
   } else if (e.target.closest('#d0') && k === 'rack' && mine && S.phase === 'discard') {
-    if (discard(0, me.findIndex(x => x.id === id))) next();               // taşı kendi atma alanına bırak
+    if (discard(0, me.findIndex(x => x.id === id))) { sel = null; next(); }   // taşı kendi atma alanına bırak
   }
 });
-document.addEventListener('click', e => {                                 // tek tık: çekme kısayolu
-  if (!S || S.over || S.turn !== 0 || S.phase !== 'draw') return;
-  if (e.target.closest('#deck')) { drawDeck(0); next(); }
-  else if (e.target.closest('#d3 .t')) { takeDiscard(0); next(); }
+document.addEventListener('click', e => {
+  if (!S || S.over) return;
+  const tile = e.target.closest('#rack .t');
+  if (tile) { sel = sel === +tile.dataset.id ? null : +tile.dataset.id; render(); return; }   // tek tık: taşı seç / bırak
+  if (S.turn !== 0) return;
+  if (S.phase === 'draw') {                                               // tek tık: çekme kısayolu
+    if (e.target.closest('#deck')) { drawDeck(0); next(); }
+    else if (e.target.closest('#d3 .t')) { takeDiscard(0); next(); }
+  } else if (sel != null && e.target.closest('#d0')) {                    // seçili taşı at
+    if (discard(0, S.hands[0].findIndex(t => t.id === sel))) { sel = null; next(); }
+  }
 });
 document.addEventListener('dblclick', e => {                              // çift tık: taşı at
   const el = e.target.closest('#rack .t');
-  if (el && S && !S.over && S.turn === 0 && S.phase === 'discard') { if (discard(0, S.hands[0].findIndex(t => t.id === +el.dataset.id))) next(); }
+  if (el && S && !S.over && S.turn === 0 && S.phase === 'discard') { if (discard(0, S.hands[0].findIndex(t => t.id === +el.dataset.id))) { sel = null; next(); } }
 });
 // ---- oyun adı: tıklayınca düzenlenir ----
 function showTitle() { $('title').textContent = cur.name; $('title').hidden = false; $('title-input').hidden = true; }
