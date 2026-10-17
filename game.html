@@ -1,12 +1,16 @@
 <!doctype html>
 <html lang="tr"><head><meta charset="utf-8"><title>Okey</title><link rel="stylesheet" href="style.css"></head>
 <body>
-<div id="table">
-  <div id="d2" class="dz"></div><div id="top" class="seat h"></div><div id="d1" class="dz"></div>
+<header id="top-bar">
+  <div class="brand"><span class="logo">7</span><span id="title">Okey</span></div>
+  <div class="actions"><button id="nw" class="btn ghost" title="Yeni oyun">Yeni Oyun</button></div>
+</header>
+<main id="table">
+  <div id="d2" class="dz"></div><div id="top" class="seat"></div><div id="d1" class="dz"></div>
   <div id="left" class="seat v"></div><div id="center"></div><div id="right" class="seat v"></div>
-  <div id="d3" class="dz"></div><div id="status"></div><div id="d0" class="dz"></div>
-</div>
+  <div id="d3" class="dz"></div><div id="hint"></div><div id="d0" class="dz mine"></div>
+  <div id="result" class="overlay" hidden><div class="card"><div id="res-title"></div><div id="res-sub"></div><button id="again" class="btn primary">Yeni Oyun</button></div></div>
+</main>
 <div id="rack"></div>
-<div id="bar"><button id="nw">Yeni Oyun</button></div>
 <script src="logic.js"></script><script src="game.js"></script>
 </body></html>
