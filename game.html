@@ -3,7 +3,7 @@
 <body>
 <header id="top-bar">
   <div class="brand"><span class="logo">7</span><span id="title" title="Adını değiştirmek için tıkla">Okey</span><input id="title-input" maxlength="28" spellcheck="false" hidden></div>
-  <div class="actions"><button id="nw" class="btn ghost" title="Yeni oyun">Yeni Oyun</button></div>
+  <div class="actions"><button id="gear" class="btn ghost icon" title="Ayarlar" aria-label="Ayarlar"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button></div>
 </header>
 <main id="table">
   <div id="d2" class="dz"></div><div id="top" class="seat"></div><div id="d1" class="dz"></div>
@@ -12,5 +12,16 @@
   <div id="result" class="overlay" hidden><div class="card"><div id="res-title"></div><div id="res-sub"></div><button id="again" class="btn primary">Yeni Oyun</button></div></div>
 </main>
 <div id="rack"></div>
-<script src="logic.js"></script><script src="store.js"></script><script src="game.js"></script>
+<div id="settings" class="scrim" hidden>
+  <aside class="panel" role="dialog" aria-label="Ayarlar">
+    <div class="panel-head"><h2>Ayarlar</h2><button id="close-settings" class="btn ghost icon" aria-label="Kapat">✕</button></div>
+    <button id="new-game" class="btn primary wide">+ Yeni Oyun</button>
+    <section><h3>Tema</h3>
+      <div class="seg" data-key="theme"><button data-v="classic">Klasik</button><button data-v="night">Gece</button><button data-v="light">Açık</button></div></section>
+    <section><h3>Grafik</h3>
+      <div class="seg" data-key="gfx"><button data-v="low">Düşük</button><button data-v="good">İyi</button><button data-v="high">Çok iyi</button></div></section>
+    <section class="grow"><h3>Oyun Yükle</h3><ul id="saves"></ul></section>
+  </aside>
+</div>
+<script src="logic.js"></script><script src="store.js"></script><script src="game.js"></script><script src="settings.js"></script>
 </body></html>
