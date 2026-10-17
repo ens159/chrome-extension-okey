@@ -11,6 +11,7 @@ function slotFor(at) { return at != null && !S.hands[0].some(t => t.s === at) ? 
 function layout() { S.hands[0].forEach((t, i) => t.s = (i % 2) * COLS + (i >> 1)); }
 
 async function newGame() {
+  clearTimeout(timer); cur = null;                                        // eski oyunun bekleyen bot hamlesi/kaydı araya girmesin
   const deck = Okey.newDeck();
   const ind = deck.splice(deck.findIndex(t => !t.fake), 1)[0];            // gösterge sahte okey olamaz
   const okey = { c: ind.c, n: ind.n % 13 + 1 };
@@ -133,7 +134,8 @@ $('title').onclick = () => {
 $('title-input').onkeydown = e => { if (e.key === 'Enter') e.target.blur(); else if (e.key === 'Escape') { e.target.value = cur.name; e.target.blur(); } };
 $('title-input').onblur = e => { const v = e.target.value.trim(); if (v && v !== cur.name) { cur.name = v; save(); } showTitle(); };
 
-$('nw').onclick = $('again').onclick = newGame;
+$('again').onclick = newGame;
+window.Game = { newGame, openSave, current: () => cur };                 // ayarlar paneli (settings.js) için
 (async () => {                                                            // açılışta son oyuna kaldığı yerden devam
   await Store.migrate(Okey.validState);
   const id = await Store.currentId(), sv = id && await Store.load(id);
