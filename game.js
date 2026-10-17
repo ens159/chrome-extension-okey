@@ -1,6 +1,6 @@
 (() => {
 const COL = ['#c89400', '#1e6fd9', '#111', '#d32f2f'], COLS = 16;       // ıstaka: 2 satır × 16 hücre
-const FLY = [[-40, 120], [0, 170], [220, 0], [0, -170]];                 // atılan taşın geldiği yön (animasyon)
+const FLY = [[-30, 90], [0, 130], [170, 0], [0, -130]];                   // atılan taşın geldiği yön (animasyon)
 let S = null, timer = null, anim = null, drag = null;
 const $ = id => document.getElementById(id);
 const prev = p => (p + 3) % 4, last = a => a[a.length - 1];
