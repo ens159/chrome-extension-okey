@@ -10,6 +10,19 @@ const prev = p => (p + 3) % 4, last = a => a[a.length - 1];
 function freeSlot() { const u = new Set(S.hands[0].map(t => t.s)); for (let i = 0; i < COLS * 2; i++) if (!u.has(i)) return i; }
 function slotFor(at) { return at != null && !S.hands[0].some(t => t.s === at) ? at : freeSlot(); }
 function layout() { S.hands[0].forEach((t, i) => t.s = (i % 2) * COLS + (i >> 1)); }
+// Seri Diz / Çift Diz: grupları aralarında bir boşlukla soldan sağa yerleştir, sığmayan alt satıra geçer
+function arrangeRack(mode) {
+  const groups = Okey.arrange(S.hands[0], S.okey, mode), rest = groups.pop();
+  const place = []; let row = 0, col = 0;
+  for (const g of groups) {
+    if (col + g.length > COLS) { row++; col = 0; }
+    g.forEach(t => place.push([t, row * COLS + col++])); col++;
+  }
+  if (row === 0 && groups.length && rest && rest.length <= COLS) { row = 1; col = 0; }   // kalanlar alt sıraya
+  for (const t of rest || []) { if (col >= COLS) { row++; col = 0; } place.push([t, row * COLS + col++]); }
+  if (row > 1) return layout();                                           // sığmazsa (pratikte olmaz) düz diz
+  for (const [t, s] of place) t.s = s;
+}
 
 async function newGame() {
   clearTimeout(timer); cur = null; sel = null;                            // eski oyunun bekleyen bot hamlesi/kaydı araya girmesin
@@ -148,6 +161,7 @@ $('title-input').onkeydown = e => { if (e.key === 'Enter') e.target.blur(); else
 $('title-input').onblur = e => { const v = e.target.value.trim(); if (v && v !== cur.name) { cur.name = v; save(); } showTitle(); };
 
 $('again').onclick = newGame;
+document.querySelectorAll('[data-arrange]').forEach(b => b.onclick = () => { if (S) { arrangeRack(b.dataset.arrange); refresh(); } });
 window.Game = { newGame, openSave, current: () => cur };                 // ayarlar paneli (settings.js) için
 (async () => {                                                            // açılışta son oyuna kaldığı yerden devam
   await Store.migrate(Okey.validState);
