@@ -73,6 +73,19 @@ const Okey = (() => {
     }
     return s;
   }
-  return { newDeck, isOk, face, canWin, findWin, score };
+  // Kayıttan yüklenen oyun durumu tutarlı mı? (106 taş, doğru el boyutları, geçerli sıra/aşama)
+  function validState(S) {
+    try {
+      const arr = Array.isArray;
+      if (!S || !arr(S.deck) || !arr(S.hands) || S.hands.length !== 4 || !arr(S.discards) || S.discards.length !== 4) return false;
+      if (![0, 1, 2, 3].includes(S.turn) || !['draw', 'discard'].includes(S.phase) || !S.okey || !S.ind) return false;
+      if (!S.hands.every(arr) || !S.discards.every(arr)) return false;
+      const all = [S.ind, ...S.deck, ...S.hands.flat(), ...S.discards.flat()];
+      if (all.length !== 106 || new Set(all.map(t => t && t.id)).size !== 106) return false;
+      if (!all.every(t => t.c >= 0 && t.c <= 3 && t.n >= 1 && t.n <= 13)) return false;
+      return S.hands.every((h, p) => h.length === (p === S.turn && S.phase === 'discard' ? 15 : 14));
+    } catch (e) { return false; }
+  }
+  return { newDeck, isOk, face, canWin, findWin, score, validState };
 })();
 if (typeof module !== 'undefined') module.exports = Okey;
