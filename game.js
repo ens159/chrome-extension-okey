@@ -19,11 +19,12 @@ function newGame() {
   S = { deck, hands, discards: [[], [], [], []], ind, okey, turn: starter, phase: 'discard', over: false, winner: null };
   layout(); next();
 }
+function save() { if (S.over) chrome.storage.local.remove('okey'); else chrome.storage.local.set({ okey: S }); }
 function next() {
-  clearTimeout(timer); render(); anim = null;
-  if (S.over) chrome.storage.local.remove('okey'); else chrome.storage.local.set({ okey: S });
+  clearTimeout(timer); render(); anim = null; save();
   if (!S.over && S.turn !== 0) timer = setTimeout(botPlay, 1000);
 }
+function refresh() { render(); save(); }                                  // bot zamanlayıcısına dokunmadan çiz + kaydet
 function drawDeck(p, at) { const t = S.deck.pop(); if (p === 0) t.s = slotFor(at); S.hands[p].push(t); S.phase = 'discard'; }
 function takeDiscard(p, at) { const t = S.discards[prev(p)].pop(); if (p === 0) t.s = slotFor(at); S.hands[p].push(t); S.phase = 'discard'; }
 function discard(p, i) {
@@ -87,7 +88,7 @@ document.addEventListener('drop', e => {
     const at = +cell.dataset.s;
     if (k === 'rack') {                                                   // ıstakada taş taşı / yer değiştir
       const t = me.find(x => x.id === id), o = me.find(x => x.s === at && x !== t);
-      if (o) o.s = t.s; t.s = at; next();
+      if (o) o.s = t.s; t.s = at; refresh();
     } else if (mine && S.phase === 'draw' && k === 'deck') { drawDeck(0, at); next(); }
     else if (mine && S.phase === 'draw' && k === 'disc') { takeDiscard(0, at); next(); }
   } else if (e.target.closest('#d0') && k === 'rack' && mine && S.phase === 'discard') {
