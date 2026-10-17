@@ -1,1 +1,3 @@
-.vs/ 
+# Ignore VS directory and macOS metadata files
+.vs/
+.DS_Store
