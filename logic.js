@@ -139,11 +139,52 @@ const Okey = (() => {
     }
     return s;
   }
+  // ---- bot zekası: 'easy' | 'normal' | 'hard' ----
+  const LEVELS = ['easy', 'normal', 'hard'];
+  // Zor bot için elin değeri: gruplara oturan taş sayısı (ya da çifte gidiyorsa çiftlerdeki taş sayısı)
+  function handValue(tiles, ok) {
+    const { cnt, j } = counts(tiles, ok);
+    let pairs = 0, singles = 0;
+    for (let c = 0; c < 4; c++) for (let n = 1; n <= 13; n++) { pairs += cnt[c][n] >> 1; singles += cnt[c][n] & 1; }
+    const pairTiles = pairs >= 4 ? 2 * pairs + 2 * Math.min(j, singles) : 0;
+    return Math.max(bestMelds(cnt, j).cover, pairTiles);
+  }
+  const without = (h, i) => h.filter((_, k) => k !== i);
+  // En iyi atılacak taş (zor): eli en değerli bırakan; eşitlikte bağlantısı en zayıf olan
+  function bestDiscard(h, ok) {
+    let best = -1, bv = -1e9;
+    h.forEach((t, i) => {
+      if (isOk(t, ok)) return;
+      const v = handValue(without(h, i), ok) - score(t, h, ok) * 0.05;
+      if (v > bv) { bv = v; best = i; }
+    });
+    return { i: best < 0 ? 0 : best, v: bv };
+  }
+  // Çekme aşaması: soldan atılan taşı (d) alsın mı?
+  function botTake(h, d, ok, level) {
+    if (findWin(h.concat(d), ok) >= 0) return true;                        // bitiriyorsa her seviye alır
+    if (level === 'easy') return false;
+    if (level === 'hard') return bestDiscard(h.concat(d), ok).v >= handValue(h, ok) + 1;
+    return score(d, h, ok) >= 5;
+  }
+  // Atma aşaması: atılacak taşın indeksi
+  function botDiscard(h, ok, level) {
+    const w = findWin(h, ok);
+    if (w >= 0) return w;
+    if (level === 'hard') return bestDiscard(h, ok).i;
+    const cand = h.map((t, i) => i).filter(i => !isOk(h[i], ok));
+    if (level === 'easy' && Math.random() < 0.5) return cand[Math.floor(Math.random() * cand.length)];
+    let i = cand[0], best = 1e9;
+    for (const k of cand) { const sc = score(h[k], h, ok); if (sc < best) { best = sc; i = k; } }
+    return i;
+  }
+
   // Kayıttan yüklenen oyun durumu tutarlı mı? (106 taş, doğru el boyutları, geçerli sıra/aşama)
   function validState(S) {
     try {
       const arr = Array.isArray;
       if (!S || !arr(S.deck) || !arr(S.hands) || S.hands.length !== 4 || !arr(S.discards) || S.discards.length !== 4) return false;
+      if (S.level != null && !LEVELS.includes(S.level)) return false;
       if (![0, 1, 2, 3].includes(S.turn) || !['draw', 'discard'].includes(S.phase) || !S.okey || !S.ind) return false;
       if (!S.hands.every(arr) || !S.discards.every(arr)) return false;
       const all = [S.ind, ...S.deck, ...S.hands.flat(), ...S.discards.flat()];
@@ -152,6 +193,6 @@ const Okey = (() => {
       return S.hands.every((h, p) => h.length === (p === S.turn && S.phase === 'discard' && !S.over ? 15 : 14));
     } catch (e) { return false; }
   }
-  return { newDeck, isOk, face, canWin, findWin, score, validState, bestMelds, counts, arrange };
+  return { newDeck, isOk, face, canWin, findWin, score, validState, bestMelds, counts, arrange, LEVELS, botTake, botDiscard };
 })();
 if (typeof module !== 'undefined') module.exports = Okey;

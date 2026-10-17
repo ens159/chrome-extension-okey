@@ -1,6 +1,7 @@
 (() => {
 const COLS = 16;                                                          // ıstaka: 2 satır × 16 hücre
 const FLY = [[-40, 120], [0, 150], [210, 0], [0, -150]];                  // atılan taşın geldiği yön (animasyon)
+const LEVEL_NAMES = { easy: 'Kolay', normal: 'Orta', hard: 'Zor' };
 const BOTS = [null, ['🦊', 'Tilki'], ['🦉', 'Baykuş'], ['🐻', 'Ayı']];           // sağ, üst, sol
 let S = null, cur = null, timer = null, anim = null, drag = null, sel = null;   // cur: açık kayıt {id, name, created}; sel: tıklanarak seçilen taş
 const $ = id => document.getElementById(id);
@@ -24,7 +25,24 @@ function arrangeRack(mode) {
   for (const [t, s] of place) t.s = s;
 }
 
-async function newGame() {
+// Her yeni oyunda bot zorluğunu sor. cancelable=false: vazgeçilemez (ilk açılış, açık oyun silindi)
+function askLevel(cancelable) {
+  const pre = (S && S.level) || 'normal';
+  document.querySelectorAll('[data-level]').forEach(b => b.classList.toggle('sel', b.dataset.level === pre));
+  $('level-cancel').hidden = !cancelable;
+  $('level-pick').hidden = false;
+  return new Promise(res => {
+    const done = v => { $('level-pick').hidden = true; document.removeEventListener('keydown', esc, true); res(v); };
+    const esc = e => { if (e.key === 'Escape' && cancelable) { e.stopPropagation(); done(null); } };
+    document.addEventListener('keydown', esc, true);
+    document.querySelectorAll('[data-level]').forEach(b => b.onclick = () => done(b.dataset.level));
+    $('level-cancel').onclick = () => done(null);
+  });
+}
+function stop() { clearTimeout(timer); cur = null; }                      // açık oyunu bırak (silinmeden önce)
+async function newGame(cancelable = true) {
+  const level = await askLevel(cancelable && !!cur);
+  if (!level) return false;
   clearTimeout(timer); cur = null; sel = null;                            // eski oyunun bekleyen bot hamlesi/kaydı araya girmesin
   const deck = Okey.newDeck();
   const ind = deck.splice(deck.findIndex(t => !t.fake), 1)[0];            // gösterge sahte okey olamaz
@@ -32,13 +50,15 @@ async function newGame() {
   const starter = Math.floor(Math.random() * 4);
   const hands = [0, 1, 2, 3].map(p => deck.splice(0, p === starter ? 15 : 14));
   const taken = (await Store.list()).map(sv => sv.name);
-  S = { deck, hands, discards: [[], [], [], []], ind, okey, turn: starter, phase: 'discard', over: false, winner: null };
+  S = { deck, hands, discards: [[], [], [], []], ind, okey, turn: starter, phase: 'discard', over: false, winner: null, level };
   cur = { id: Store.newId(), name: Store.randomName(taken), created: Date.now() };
   Store.setCurrent(cur.id); showTitle(); layout(); next();
+  return true;
 }
 function openSave(sv) {
   clearTimeout(timer); anim = null; sel = null;
   S = sv.state; cur = { id: sv.id, name: sv.name, created: sv.created };
+  S.level = S.level || 'normal';                                          // zorluk eklenmeden önceki kayıtlar
   if (S.hands[0].some(t => t.s == null)) layout();
   Store.setCurrent(cur.id); showTitle(); next();
 }
@@ -61,14 +81,12 @@ function discard(p, i) {
   return true;
 }
 function botPlay() {
-  const p = S.turn, h = S.hands[p];
+  const p = S.turn, h = S.hands[p], lv = S.level || 'normal';
   if (S.phase === 'draw') {
     const d = last(S.discards[prev(p)]);
-    if (d && (Okey.findWin(h.concat(d), S.okey) >= 0 || Okey.score(d, h, S.okey) >= 5)) takeDiscard(p); else drawDeck(p);
+    if (d && (!S.deck.length || Okey.botTake(h, d, S.okey, lv))) takeDiscard(p); else drawDeck(p);
   }
-  let i = Okey.findWin(h, S.okey);
-  if (i < 0) { let best = 1e9; h.forEach((t, k) => { const s = Okey.score(t, h, S.okey); if (s < best) { best = s; i = k; } }); }
-  discard(p, i); next();
+  discard(p, Okey.botDiscard(h, S.okey, lv)); next();
 }
 
 // ---- çizim ----
@@ -152,7 +170,7 @@ document.addEventListener('dblclick', e => {                              // çi
   if (el && S && !S.over && S.turn === 0 && S.phase === 'discard') { if (discard(0, S.hands[0].findIndex(t => t.id === +el.dataset.id))) { sel = null; next(); } }
 });
 // ---- oyun adı: tıklayınca düzenlenir ----
-function showTitle() { $('title').textContent = cur.name; $('title').hidden = false; $('title-input').hidden = true; }
+function showTitle() { $('level-chip').textContent = LEVEL_NAMES[S.level] || ''; $('title').textContent = cur.name; $('title').hidden = false; $('title-input').hidden = true; }
 $('title').onclick = () => {
   const inp = $('title-input'); inp.value = cur.name;
   $('title').hidden = true; inp.hidden = false; inp.focus(); inp.select();
@@ -160,12 +178,12 @@ $('title').onclick = () => {
 $('title-input').onkeydown = e => { if (e.key === 'Enter') e.target.blur(); else if (e.key === 'Escape') { e.target.value = cur.name; e.target.blur(); } };
 $('title-input').onblur = e => { const v = e.target.value.trim(); if (v && v !== cur.name) { cur.name = v; save(); } showTitle(); };
 
-$('again').onclick = newGame;
+$('again').onclick = () => newGame();
 document.querySelectorAll('[data-arrange]').forEach(b => b.onclick = () => { if (S) { arrangeRack(b.dataset.arrange); refresh(); } });
-window.Game = { newGame, openSave, current: () => cur };                 // ayarlar paneli (settings.js) için
+window.Game = { newGame, openSave, stop, current: () => cur, LEVEL_NAMES };                 // ayarlar paneli (settings.js) için
 (async () => {                                                            // açılışta son oyuna kaldığı yerden devam
   await Store.migrate(Okey.validState);
   const id = await Store.currentId(), sv = id && await Store.load(id);
-  if (sv && Okey.validState(sv.state)) openSave(sv); else newGame();
+  if (sv && Okey.validState(sv.state)) openSave(sv); else newGame(false);
 })();
 })();
