@@ -61,6 +61,72 @@ const Okey = (() => {
     for (let i = 0; i < hand.length; i++) if (canWin(hand.filter((_, k) => k !== i), ok)) return i;
     return -1;
   }
+  // En çok taşı geçerli gruplara (seri/per) yerleştiren ayrım. Okey'ler 'J' ile gösterilir.
+  // Döner: { cover: gruplardaki taş sayısı, melds: [[{c,n} | 'J', ...], ...] }
+  function bestMelds(cnt, j, memo = new Map()) {
+    let pc = -1, pn = -1;
+    outer: for (let c = 0; c < 4; c++) for (let n = 1; n <= 13; n++) if (cnt[c][n] > 0) { pc = c; pn = n; break outer; }
+    if (pc < 0) return { cover: 0, melds: [] };
+    const key = cnt.map(r => r.join('')).join('|') + j;
+    if (memo.has(key)) return memo.get(key);
+    cnt[pc][pn]--;
+    let best = bestMelds(cnt, j, memo);                                     // pivot taşı hiçbir gruba girmez
+    const take = (meld, jl) => {
+      const r = bestMelds(cnt, jl, memo);
+      if (r.cover + meld.length > best.cover) best = { cover: r.cover + meld.length, melds: [meld.slice(), ...r.melds] };
+    };
+    // n. pozisyona gerçek taş ya da okey koyarak gruplar dene; done(meld, jl) her geçerli uzunlukta çağrılır
+    const extend = (cells, i, meld, jl, done) => {
+      if (i === cells.length) return;
+      const [c, n] = cells[i];
+      if (cnt[c][n] > 0) { cnt[c][n]--; meld.push({ c, n }); done(meld, jl, i + 1); extend(cells, i + 1, meld, jl, done); meld.pop(); cnt[c][n]++; }
+      if (jl > 0) { meld.push('J'); done(meld, jl - 1, i + 1); extend(cells, i + 1, meld, jl - 1, done); meld.pop(); }
+    };
+    const pivot = { c: pc, n: pn };
+    // per: pivot + diğer renklerden 2 ya da 3 taş
+    const others = [0, 1, 2, 3].filter(x => x !== pc);
+    for (let m = 0; m < 8; m++) {
+      const sel = others.filter((_, i) => (m >> i) & 1);
+      if (sel.length >= 2) extend(sel.map(c => [c, pn]), 0, [pivot], j, (meld, jl, k) => { if (k === sel.length) take(meld, jl); });
+    }
+    // seri: pivot'tan yukarı (13'ten sonra 1 gelebilir)
+    const up = []; for (let p = pn + 1; p <= Math.min(14, pn + 12); p++) up.push([pc, p > 13 ? 1 : p]);
+    extend(up, 0, [pivot], j, (meld, jl) => { if (meld.length >= 3) take(meld, jl); });
+    // pivot 1 ise serinin sonu olabilir: s..13-1
+    if (pn === 1) for (let st = 12; st >= 2; st--) {
+      const cells = []; for (let p = st; p <= 13; p++) cells.push([pc, p]);
+      extend(cells, 0, [], j, (meld, jl, k) => { if (k === cells.length) take([...meld, pivot], jl); });
+    }
+    cnt[pc][pn]++;
+    memo.set(key, best);
+    return best;
+  }
+  const counts = (tiles, ok) => {
+    const cnt = [0, 1, 2, 3].map(() => Array(15).fill(0)); let j = 0;
+    for (const t of tiles) { if (isOk(t, ok)) j++; else { const f = face(t, ok); cnt[f.c][f.n]++; } }
+    return { cnt, j };
+  };
+  const byFace = ok => (a, b) => { const x = face(a, ok), y = face(b, ok); return x.c - y.c || x.n - y.n; };
+
+  // Istakayı diz: 'run' = seri/per grupları, 'pair' = çiftler. Döner: taş grupları (son grup: kalanlar)
+  function arrange(hand, ok, mode) {
+    const jokers = hand.filter(t => isOk(t, ok)), pool = {};
+    for (const t of hand) if (!isOk(t, ok)) { const f = face(t, ok); (pool[f.c + '-' + f.n] = pool[f.c + '-' + f.n] || []).push(t); }
+    const groups = [];
+    if (mode === 'pair') {
+      for (const k of Object.keys(pool)) while (pool[k].length >= 2) groups.push(pool[k].splice(0, 2));
+      groups.sort((a, b) => byFace(ok)(a[0], b[0]));
+      if (jokers.length) groups.push(jokers.splice(0));
+    } else {
+      const { cnt, j } = counts(hand, ok);
+      for (const m of bestMelds(cnt, j).melds) groups.push(m.map(x => (x === 'J' ? jokers.pop() : pool[x.c + '-' + x.n].pop())));
+      groups.sort((a, b) => { const x = a.find(t => !isOk(t, ok)), y = b.find(t => !isOk(t, ok)); return x && y ? byFace(ok)(x, y) : 0; });
+    }
+    const rest = [...jokers, ...Object.values(pool).flat().sort(byFace(ok))];
+    if (rest.length) groups.push(rest);
+    return groups;
+  }
+
   // Bot sezgisi: taşın eldeki diğer taşlarla bağlantı puanı
   function score(t, hand, ok) {
     if (isOk(t, ok)) return 100;
@@ -86,6 +152,6 @@ const Okey = (() => {
       return S.hands.every((h, p) => h.length === (p === S.turn && S.phase === 'discard' && !S.over ? 15 : 14));
     } catch (e) { return false; }
   }
-  return { newDeck, isOk, face, canWin, findWin, score, validState };
+  return { newDeck, isOk, face, canWin, findWin, score, validState, bestMelds, counts, arrange };
 })();
 if (typeof module !== 'undefined') module.exports = Okey;
