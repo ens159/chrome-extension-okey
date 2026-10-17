@@ -1,9 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Okey",
-  "version": "1.0",
+  "version": "1.1",
   "description": "3 bota karşı Okey",
   "permissions": ["storage"],
-  "background": { "service_worker": "background.js" },
-  "action": { "default_title": "Okey oyna" }
+  "action": { "default_title": "Okey oyna", "default_popup": "game.html" }
 }
