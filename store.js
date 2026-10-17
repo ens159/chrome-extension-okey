@@ -15,7 +15,9 @@ const Store = (() => {
 
   async function list() {
     const all = await get(null);
-    return Object.keys(all).filter(k => k.startsWith(PFX)).map(k => all[k]).sort((a, b) => b.updated - a.updated);
+    return Object.keys(all).filter(k => k.startsWith(PFX)).map(k => all[k])
+      .filter(sv => sv && typeof sv === 'object' && sv.id && sv.state)       // bozuk kayıt listenin tamamını kırmasın
+      .sort((a, b) => (b.updated || 0) - (a.updated || 0));
   }
   const load = async id => (await get(PFX + id))[PFX + id] || null;
   const put = sv => area.set({ [PFX + sv.id]: sv });
