@@ -80,13 +80,75 @@ function discard(p, i) {
   if (!S.deck.length && Okey.findWin(S.hands[S.turn].concat(t), S.okey) < 0) { S.over = true; S.winner = -1; }
   return true;
 }
+function animateTileIn(drawnId, fromRect) {
+  if (!fromRect) return;
+  const el = document.querySelector(`#rack .t[data-id="${drawnId}"]`);
+  if (!el) return;
+  const toRect = el.getBoundingClientRect();
+  const dx = fromRect.left - toRect.left, dy = fromRect.top - toRect.top;
+  el.style.transform = `translate(${dx}px, ${dy}px) scale(0.92)`;
+  el.style.transition = 'none';
+  el.style.zIndex = '10';
+  requestAnimationFrame(() => {
+    el.getBoundingClientRect();
+    el.style.transition = 'transform .26s cubic-bezier(.2, .8, .2, 1)';
+    el.style.transform = '';
+    setTimeout(() => { el.style.transition = ''; el.style.zIndex = ''; }, 280);
+  });
+}
+function humanDrawDeck(at) {
+  const src = $('deck') || $('center');
+  const fromRect = src ? src.getBoundingClientRect() : null;
+  drawDeck(0, at);
+  const drawn = last(S.hands[0]);
+  next();
+  if (drawn && fromRect) animateTileIn(drawn.id, fromRect);
+  if (typeof Sound !== 'undefined') Sound.playDraw();
+}
+function humanTakeDiscard(at) {
+  const src = document.querySelector('#d3 .t') || $('d3');
+  const fromRect = src ? src.getBoundingClientRect() : null;
+  takeDiscard(0, at);
+  const drawn = last(S.hands[0]);
+  next();
+  if (drawn && fromRect) animateTileIn(drawn.id, fromRect);
+  if (typeof Sound !== 'undefined') Sound.playDraw();
+}
+function humanDiscard(idx) {
+  if (idx < 0 || !S || S.turn !== 0 || S.phase !== 'discard') return false;
+  const tileObj = S.hands[0][idx];
+  const tileEl = tileObj ? document.querySelector(`#rack .t[data-id="${tileObj.id}"]`) : null;
+  const fromRect = tileEl ? tileEl.getBoundingClientRect() : null;
+  sel = null;
+  if (!discard(0, idx)) return false;
+  next();
+  if (fromRect) {
+    const toEl = document.querySelector('#d0 .t');
+    if (toEl) {
+      const toRect = toEl.getBoundingClientRect();
+      const dx = fromRect.left - toRect.left, dy = fromRect.top - toRect.top;
+      toEl.style.transform = `translate(${dx}px, ${dy}px) scale(0.95)`;
+      toEl.style.transition = 'none';
+      requestAnimationFrame(() => {
+        toEl.getBoundingClientRect();
+        toEl.style.transition = 'transform .25s cubic-bezier(.2, .8, .2, 1)';
+        toEl.style.transform = '';
+        setTimeout(() => { toEl.style.transition = ''; }, 270);
+      });
+    }
+  }
+  if (typeof Sound !== 'undefined') Sound.playDiscard();
+  return true;
+}
 function botPlay() {
   const p = S.turn, h = S.hands[p], lv = S.level || 'normal';
   if (S.phase === 'draw') {
     const d = last(S.discards[prev(p)]);
     if (d && (!S.deck.length || Okey.botTake(h, d, S.okey, lv))) takeDiscard(p); else drawDeck(p);
   }
-  discard(p, Okey.botDiscard(h, S.okey, lv)); next();
+  discard(p, Okey.botDiscard(h, S.okey, lv));
+  if (typeof Sound !== 'undefined') Sound.playDiscard();
+  next();
 }
 
 // ---- çizim ----
@@ -147,27 +209,54 @@ document.addEventListener('drop', e => {
       const t = me.find(x => x.id === id); if (!t) return;
       const o = me.find(x => x.s === at && x !== t);
       if (o) o.s = t.s; t.s = at; refresh();
-    } else if (mine && S.phase === 'draw' && k === 'deck') { drawDeck(0, at); next(); }
-    else if (mine && S.phase === 'draw' && k === 'disc') { takeDiscard(0, at); next(); }
+      if (typeof Sound !== 'undefined') Sound.playClick();
+    } else if (mine && S.phase === 'draw' && k === 'deck') { humanDrawDeck(at); }
+    else if (mine && S.phase === 'draw' && k === 'disc') { humanTakeDiscard(at); }
   } else if (e.target.closest('#d0') && k === 'rack' && mine && S.phase === 'discard') {
-    if (discard(0, me.findIndex(x => x.id === id))) { sel = null; next(); }   // taşı kendi atma alanına bırak
+    humanDiscard(me.findIndex(x => x.id === id));
   }
 });
+let multiId = null, clickHits = 0, clickTmr = null;
 document.addEventListener('click', e => {
   if (!S || S.over) return;
   const tile = e.target.closest('#rack .t');
-  if (tile) { sel = sel === +tile.dataset.id ? null : +tile.dataset.id; render(); return; }   // tek tık: taşı seç / bırak
+  if (tile) {
+    if (typeof Sound !== 'undefined') Sound.playClick();
+    const id = +tile.dataset.id;
+    if (multiId === id) { clickHits++; } else { multiId = id; clickHits = 1; }
+    clearTimeout(clickTmr);
+    clickTmr = setTimeout(() => { multiId = null; clickHits = 0; }, 500);
+
+    // 3 ardışık tık: taşı at (çift tıklamada yanlışlıkla atılmayı önler)
+    if (clickHits >= 3) {
+      clearTimeout(clickTmr);
+      multiId = null;
+      clickHits = 0;
+      if (S.turn === 0 && S.phase === 'discard') {
+        const idx = S.hands[0].findIndex(t => t.id === id);
+        if (humanDiscard(idx)) return;
+      }
+    }
+
+    const prevSel = sel;
+    if (clickHits === 1) {
+      sel = sel === id ? null : id;
+    } else {
+      sel = id; // ardışık 2. tıkta seçili kalsın
+    }
+    if (prevSel !== sel) {
+      if (prevSel != null) { const el = document.querySelector(`#rack .t[data-id="${prevSel}"]`); if (el) el.classList.remove('sel'); }
+      if (sel != null) tile.classList.add('sel');
+    }
+    return;
+  }
   if (S.turn !== 0) return;
   if (S.phase === 'draw') {                                               // tek tık: çekme kısayolu
-    if (e.target.closest('#deck')) { drawDeck(0); next(); }
-    else if (e.target.closest('#d3 .t')) { takeDiscard(0); next(); }
+    if (e.target.closest('#deck')) { humanDrawDeck(); }
+    else if (e.target.closest('#d3 .t')) { humanTakeDiscard(); }
   } else if (sel != null && e.target.closest('#d0')) {                    // seçili taşı at
-    if (discard(0, S.hands[0].findIndex(t => t.id === sel))) { sel = null; next(); }
+    humanDiscard(S.hands[0].findIndex(t => t.id === sel));
   }
-});
-document.addEventListener('dblclick', e => {                              // çift tık: taşı at
-  const el = e.target.closest('#rack .t');
-  if (el && S && !S.over && S.turn === 0 && S.phase === 'discard') { if (discard(0, S.hands[0].findIndex(t => t.id === +el.dataset.id))) { sel = null; next(); } }
 });
 // ---- oyun adı: tıklayınca düzenlenir ----
 function showTitle() { $('level-chip').textContent = LEVEL_NAMES[S.level] || ''; $('title').textContent = cur.name; $('title').hidden = false; $('title-input').hidden = true; }
@@ -179,8 +268,67 @@ $('title-input').onkeydown = e => { if (e.key === 'Enter') e.target.blur(); else
 $('title-input').onblur = e => { const v = e.target.value.trim(); if (v && v !== cur.name) { cur.name = v; save(); } showTitle(); };
 
 $('again').onclick = () => newGame();
-document.querySelectorAll('[data-arrange]').forEach(b => b.onclick = () => { if (S) { arrangeRack(b.dataset.arrange); refresh(); } });
+function smoothArrange(mode) {
+  if (!S || S.over) return;
+  sel = null;
+  const first = new Map();
+  document.querySelectorAll('#rack .t[data-id]').forEach(el => first.set(+el.dataset.id, el.getBoundingClientRect()));
+  arrangeRack(mode);
+  render();
+  save();
+  const moving = [];
+  document.querySelectorAll('#rack .t[data-id]').forEach(el => {
+    const p = first.get(+el.dataset.id);
+    if (!p) return;
+    const c = el.getBoundingClientRect(), dx = p.left - c.left, dy = p.top - c.top;
+    if (Math.abs(dx) > 1 || Math.abs(dy) > 1) {
+      el.style.transform = `translate(${dx}px, ${dy}px)`;
+      el.style.transition = 'none';
+      el.style.zIndex = '5';
+      moving.push(el);
+    }
+  });
+  if (moving.length) {
+    requestAnimationFrame(() => {
+      moving[0].getBoundingClientRect();
+      for (const el of moving) {
+        el.style.transition = 'transform .22s cubic-bezier(.2, .8, .2, 1)';
+        el.style.transform = '';
+        const done = () => { el.style.transition = ''; el.style.transform = ''; el.style.zIndex = ''; };
+        el.addEventListener('transitionend', done, { once: true });
+        setTimeout(done, 260);
+      }
+    });
+  }
+}
+document.querySelectorAll('[data-arrange]').forEach(b => b.onclick = () => smoothArrange(b.dataset.arrange));
 window.Game = { newGame, openSave, stop, current: () => cur, LEVEL_NAMES };                 // ayarlar paneli (settings.js) için
+function updateSoundIcons() {
+  if (typeof Sound === 'undefined') return;
+  const muted = Sound.isMuted();
+  const on = $('snd-on'), off = $('snd-off');
+  if (on) {
+    on.hidden = muted;
+    on.style.display = muted ? 'none' : 'block';
+  }
+  if (off) {
+    off.hidden = !muted;
+    off.style.display = muted ? 'block' : 'none';
+  }
+  if ($('sound-btn')) $('sound-btn').title = muted ? 'Sesi Aç' : 'Sesi Kapat';
+}
+if ($('sound-btn')) {
+  $('sound-btn').onclick = () => {
+    if (typeof Sound !== 'undefined') {
+      Sound.toggleMute();
+      updateSoundIcons();
+    }
+  };
+}
+if (typeof Sound !== 'undefined') {
+  Sound.init();
+  updateSoundIcons();
+}
 (async () => {                                                            // açılışta son oyuna kaldığı yerden devam
   await Store.migrate(Okey.validState);
   const id = await Store.currentId(), sv = id && await Store.load(id);
