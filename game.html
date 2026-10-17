@@ -2,7 +2,7 @@
 <html lang="tr"><head><meta charset="utf-8"><title>Okey</title><link rel="stylesheet" href="style.css"></head>
 <body>
 <header id="top-bar">
-  <div class="brand"><span class="logo">7</span><span id="title" title="Adını değiştirmek için tıkla">Okey</span><input id="title-input" maxlength="28" spellcheck="false" hidden></div>
+  <div class="brand"><span class="logo">7</span><span id="title" title="Adını değiştirmek için tıkla">Okey</span><input id="title-input" maxlength="28" spellcheck="false" hidden><span id="level-chip" class="chip" title="Bot zorluğu"></span></div>
   <div class="actions"><button id="gear" class="btn ghost icon" title="Ayarlar" aria-label="Ayarlar"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button></div>
 </header>
 <main id="table">
@@ -22,6 +22,18 @@
       <div class="seg" data-key="gfx"><button data-v="low">Düşük</button><button data-v="good">İyi</button><button data-v="high">Çok iyi</button></div></section>
     <section class="grow"><h3>Oyun Yükle</h3><ul id="saves"></ul></section>
   </aside>
+</div>
+<div id="level-pick" class="overlay modal" hidden>
+  <div class="card">
+    <div class="card-title">Yeni Oyun</div>
+    <div class="card-sub">Botların zorluğunu seç</div>
+    <div class="levels">
+      <button data-level="easy"><span class="em">🙂</span><b>Kolay</b><small>Rahat, hata yapan rakipler</small></button>
+      <button data-level="normal"><span class="em">😐</span><b>Orta</b><small>Dengeli bir oyun</small></button>
+      <button data-level="hard"><span class="em">😈</span><b>Zor</b><small>Hesaplı oynayan botlar</small></button>
+    </div>
+    <button id="level-cancel" class="btn ghost-dark">Vazgeç</button>
+  </div>
 </div>
 <script src="logic.js"></script><script src="store.js"></script><script src="game.js"></script><script src="settings.js"></script>
 </body></html>
