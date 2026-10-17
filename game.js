@@ -111,6 +111,6 @@ document.addEventListener('dblclick', e => {                              // çi
 });
 $('nw').onclick = newGame;
 chrome.storage.local.get('okey', r => {
-  if (r.okey && !r.okey.over) { S = r.okey; if (S.hands[0].some(t => t.s == null)) layout(); next(); } else newGame();
+  if (r.okey && !r.okey.over && Okey.validState(r.okey)) { S = r.okey; if (S.hands[0].some(t => t.s == null)) layout(); next(); } else newGame();
 });
 })();
