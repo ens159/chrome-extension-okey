@@ -33,7 +33,8 @@ function discard(p, i) {
   S.discards[p].push(t); anim = p;
   if (Okey.canWin(S.hands[p], S.okey)) { S.over = true; S.winner = p; return true; }
   S.turn = (p + 1) % 4; S.phase = 'draw';
-  if (!S.deck.length) { S.over = true; S.winner = -1; }
+  // Deste bittiyse sıradaki oyuncu son atılan taşı yalnızca onunla bitirebiliyorsa alabilir; yoksa el berabere.
+  if (!S.deck.length && Okey.findWin(S.hands[S.turn].concat(t), S.okey) < 0) { S.over = true; S.winner = -1; }
   return true;
 }
 function botPlay() {
