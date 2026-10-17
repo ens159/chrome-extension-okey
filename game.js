@@ -182,7 +182,7 @@ function render() {
     r += '</div>';
   }
   $('rack').innerHTML = r;
-  const hint = S.over ? '' : canDraw ? 'Sıra sende: desteye ya da soldaki taşa tıkla' : canDisc ? (w >= 0 ? 'Parlayan taşı atarsan eli bitiriyorsun!' : 'Bir taş seç, sonra “At” alanına tıkla (ya da sürükle)')
+  const hint = S.over ? '' : canDraw ? 'Sıra sende: desteye ya da soldaki taşa tıkla' : canDisc ? (w >= 0 ? 'Parlayan taşı atarsan eli bitiriyorsun!' : 'Bir taş seç, ardından “3 kez üst üste tıkla” (ya da sürükle)')
     : `${BOTS[S.turn][1]} oynuyor…`;
   $('hint').innerHTML = hint ? `<span class="${mine ? 'go' : ''}">${hint}</span>` : '';
   $('result').hidden = !S.over;
