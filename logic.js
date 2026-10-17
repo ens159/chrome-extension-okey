@@ -108,7 +108,7 @@ const Okey = (() => {
   };
   const byFace = ok => (a, b) => { const x = face(a, ok), y = face(b, ok); return x.c - y.c || x.n - y.n; };
 
-  // Istakayı diz: 'run' = seri/per grupları, 'pair' = çiftler. Döner: taş grupları (son grup: kalanlar)
+  // Istakayı diz: 'run' = seri/per grupları, 'pair' = çiftler. Döner: taş grupları (son grup: kalanlar, boş olabilir)
   function arrange(hand, ok, mode) {
     const jokers = hand.filter(t => isOk(t, ok)), pool = {};
     for (const t of hand) if (!isOk(t, ok)) { const f = face(t, ok); (pool[f.c + '-' + f.n] = pool[f.c + '-' + f.n] || []).push(t); }
@@ -123,7 +123,7 @@ const Okey = (() => {
       groups.sort((a, b) => { const x = a.find(t => !isOk(t, ok)), y = b.find(t => !isOk(t, ok)); return x && y ? byFace(ok)(x, y) : 0; });
     }
     const rest = [...jokers, ...Object.values(pool).flat().sort(byFace(ok))];
-    if (rest.length) groups.push(rest);
+    groups.push(rest);
     return groups;
   }
 
