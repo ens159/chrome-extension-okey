@@ -97,6 +97,20 @@ body{height:590px;display:flex;flex-direction:column;font:14px/1.3 system-ui,-ap
 #res-title{font-size:20px;font-weight:800}#res-sub{margin:4px 0 14px;font-size:13px;opacity:.7}
 @keyframes fade{from{opacity:0}}
 
+/* zorluk seçimi */
+.chip{flex:none;padding:2px 8px;border-radius:10px;background:var(--line);font-size:11px;font-weight:700;color:var(--muted)}
+.chip:empty{display:none}
+.overlay.modal{position:fixed;z-index:20;background:#00000073}
+.card-title{font-size:18px;font-weight:800}.card-sub{margin:2px 0 14px;font-size:13px;opacity:.7}
+.levels{display:flex;gap:10px;margin-bottom:12px}
+.levels button{width:132px;display:flex;flex-direction:column;align-items:center;gap:3px;padding:14px 10px;font:inherit;color:inherit;cursor:pointer;
+  border-radius:12px;border:2px solid #00000014;background:#00000008;transition:border-color .15s,transform .1s,background .15s}
+.levels button:hover{border-color:var(--accent);transform:translateY(-2px)}
+.levels button.sel{border-color:var(--accent);background:#ffd34d22}
+.levels .em{font-size:28px}.levels b{font-size:15px}.levels small{font-size:11px;opacity:.65;text-align:center}
+.btn.ghost-dark{background:transparent;color:inherit;opacity:.7}.btn.ghost-dark:hover{opacity:1;background:#0000000d}
+.btn.ghost-dark[hidden]{display:none}
+
 /* ayarlar */
 .btn.icon{width:32px;height:32px;padding:0;display:grid;place-items:center}
 .btn.wide{width:100%}
@@ -126,7 +140,7 @@ body{height:590px;display:flex;flex-direction:column;font:14px/1.3 system-ui,-ap
 :root[data-gfx="low"] body{background:var(--bg);animation:none}
 :root[data-gfx="low"] *,:root[data-gfx="low"] *::before,:root[data-gfx="low"] *::after{animation:none!important;transition:none!important;box-shadow:none!important;backdrop-filter:none!important}
 :root[data-gfx="low"] .t.ok{outline:2px solid var(--ok);outline-offset:-2px}
-:root[data-gfx="low"] .t.win,:root[data-gfx="low"] .t.glow,:root[data-gfx="low"] .t.sel,:root[data-gfx="low"] .seat.turn .avatar,:root[data-gfx="low"] .save.cur{outline:2px solid var(--accent);outline-offset:-2px}
+:root[data-gfx="low"] .levels button.sel,:root[data-gfx="low"] .t.win,:root[data-gfx="low"] .t.glow,:root[data-gfx="low"] .t.sel,:root[data-gfx="low"] .seat.turn .avatar,:root[data-gfx="low"] .save.cur{outline:2px solid var(--accent);outline-offset:-2px}
 /* grafik: çok iyi = keçe dokusu, taş gölgeleri, parlayan nabız efekti */
 :root[data-gfx="high"] body{background:radial-gradient(#ffffff08 1px,transparent 1.5px) 0 0/6px 6px,radial-gradient(120% 90% at 50% 40%,var(--bg),var(--bg2))}
 :root[data-gfx="high"] .t{background-image:linear-gradient(#fff6,#fff0 60%);box-shadow:0 2px 4px #0003}

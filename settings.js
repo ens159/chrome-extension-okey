@@ -20,13 +20,14 @@ function setOpt(key, v) {
 
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const when = ts => new Date(ts).toLocaleString('tr-TR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+const level = st => (Game.LEVEL_NAMES[st.level || 'normal'] || '') + ' · ';
 const status = st => !st.over ? 'Devam ediyor' : st.winner === 0 ? 'Kazandın' : st.winner > 0 ? `Bot ${st.winner} kazandı` : 'Berabere';
 
 async function renderSaves() {
   const saves = await Store.list(), curId = Game.current() && Game.current().id;
   $('saves').innerHTML = saves.length ? saves.map(sv => `
     <li class="save${sv.id === curId ? ' cur' : ''}" data-id="${esc(sv.id)}">
-      <div class="info"><b>${esc(sv.name)}</b><small>${sv.id === curId ? '<span class="tag">Açık</span> ' : ''}${status(sv.state)} · ${when(sv.updated)}</small></div>
+      <div class="info"><b>${esc(sv.name)}</b><small>${sv.id === curId ? '<span class="tag">Açık</span> ' : ''}${level(sv.state)}${status(sv.state)} · ${when(sv.updated)}</small></div>
       <button class="btn small" data-act="load"${sv.id === curId ? ' disabled' : ''}>Yükle</button>
       <button class="btn small danger" data-act="del" title="Kaydı sil">Sil</button>
     </li>`).join('') : '<li class="empty">Kayıtlı oyun yok.</li>';
@@ -42,7 +43,7 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('settin
 document.querySelectorAll('.seg').forEach(seg => seg.addEventListener('click', e => {
   const b = e.target.closest('button'); if (b) setOpt(seg.dataset.key, b.dataset.v);
 }));
-$('new-game').onclick = async () => { await Game.newGame(); close(); };
+$('new-game').onclick = async () => { if (await Game.newGame()) close(); };
 $('saves').addEventListener('click', async e => {
   const b = e.target.closest('button[data-act]'); if (!b) return;
   const id = b.closest('.save').dataset.id;
@@ -52,8 +53,10 @@ $('saves').addEventListener('click', async e => {
     else { b.textContent = 'Bozuk'; b.disabled = true; }
   } else if (b.dataset.act === 'del') {
     if (!b.classList.contains('confirm')) { b.classList.add('confirm'); b.textContent = 'Emin misin?'; return; }   // ikinci tık siler
-    if (Game.current() && Game.current().id === id) await Game.newGame();          // açık oyun silinecekse önce yenisine geç
+    const wasOpen = Game.current() && Game.current().id === id;
+    if (wasOpen) Game.stop();                                              // bekleyen bot hamlesi silinen kaydı geri yazmasın
     await Store.remove(id);
+    if (wasOpen) { close(); await Game.newGame(false); }                   // açık oyun silindiyse yenisini başlat
     renderSaves();
   }
 });
