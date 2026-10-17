@@ -27,16 +27,22 @@ async function renderSaves() {
   const saves = await Store.list(), curId = Game.current() && Game.current().id;
   const active = saves.filter(sv => !(sv.state && sv.state.over));
   const played = saves.filter(sv => sv.state && sv.state.over);
-  $('saves').innerHTML = active.length ? active.map(sv => `
+  const savesContainer = $('saves');
+if (savesContainer) {
+  savesContainer.innerHTML = active.length ? active.map(sv => `
     <li class="save${sv.id === curId ? ' cur' : ''}" data-id="${esc(sv.id)}">
       <div class="info"><b>${esc(sv.name)}</b><small>${sv.id === curId ? '<span class="tag">Açık</span> ' : ''}${level(sv.state)}${status(sv.state)} · ${when(sv.updated)}</small></div>
       <button class="btn small" data-act="load"${sv.id === curId ? ' disabled' : ''}>Yükle</button>
       <button class="btn small danger" data-act="del" title="Kaydı sil">Sil</button>
     </li>`).join('') : '<li class="empty">Kayıtlı oyun yok.</li>';
-  $('played').innerHTML = played.length ? played.map(sv => `
+}
+  const playedContainer = $('played');
+if (playedContainer) {
+  playedContainer.innerHTML = played.length ? played.map(sv => `
     <li class="save" data-id="${esc(sv.id)}">
       <div class="info"><b>${esc(sv.name)}</b><small>${level(sv.state)}${status(sv.state)} · ${when(sv.updated)}</small></div>
     </li>`).join('') : '<li class="empty">Oynanan oyun yok.</li>';
+}
 }
 
 function open() { renderSaves(); $('settings').hidden = false; requestAnimationFrame(() => $('settings').classList.add('open')); }

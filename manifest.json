@@ -9,5 +9,8 @@
   "action": {
     "default_title": "Okey oyna",
     "default_popup": "game.html"
+  },
+  "icons": {
+    "128": "icons/icon.svg"
   }
 }
