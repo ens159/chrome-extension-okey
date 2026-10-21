@@ -127,6 +127,39 @@ const Okey = (() => {
     return groups;
   }
 
+  // ---- Istakadaki dizilişe göre bitiş kontrolü ----
+  // Tek bir grup mu? Per (aynı sayı, farklı renk, 3-4 taş) ya da seri (aynı renk, ardışık, 12-13-1 olur, 13-1-2 olmaz). Okey joker.
+  function isGroup(tiles, ok) {
+    const n = tiles.length; if (n < 3 || n > 13) return false;
+    const f = tiles.filter(t => !isOk(t, ok)).map(t => face(t, ok));
+    if (!f.length) return false;
+    if (n <= 4 && f.every(x => x.n === f[0].n) && new Set(f.map(x => x.c)).size === f.length) return true;
+    if (!f.every(x => x.c === f[0].c)) return false;
+    const ns = f.map(x => x.n); if (new Set(ns).size !== ns.length) return false;
+    for (let s = 1; s + n - 1 <= 14; s++)
+      for (const hi of ns.includes(1) ? [false, true] : [false]) {            // 1, 13'ten sonra 14. pozisyon olabilir
+        const pos = ns.map(x => (x === 1 && hi ? 14 : x));
+        if (pos.every(p => p >= s && p <= s + n - 1)) return true;
+      }
+    return false;
+  }
+  // Yan yana duran ardışık ikililer aynı taş mı? (3-3-4-4 gibi). Okey herhangi bir taşın eşi olur.
+  function isPairs(tiles, ok) {
+    if (tiles.length % 2) return false;
+    for (let i = 0; i < tiles.length; i += 2) {
+      const a = tiles[i], b = tiles[i + 1];
+      if (isOk(a, ok) || isOk(b, ok)) continue;
+      const x = face(a, ok), y = face(b, ok);
+      if (x.c !== y.c || x.n !== y.n) return false;
+    }
+    return true;
+  }
+  // groups: ıstakada boşluksuz yan yana duran taş grupları (soldan sağa). 14 taşın hepsi per/seri ya da hepsi çift olmalı.
+  function rackWins(groups, ok) {
+    if (groups.reduce((a, g) => a + g.length, 0) !== 14) return false;
+    return groups.every(g => isGroup(g, ok)) || groups.every(g => isPairs(g, ok));
+  }
+
   // Bot sezgisi: taşın eldeki diğer taşlarla bağlantı puanı
   function score(t, hand, ok) {
     if (isOk(t, ok)) return 100;
@@ -187,12 +220,12 @@ const Okey = (() => {
       if (S.level != null && !LEVELS.includes(S.level)) return false;
       if (![0, 1, 2, 3].includes(S.turn) || !['draw', 'discard'].includes(S.phase) || !S.okey || !S.ind) return false;
       if (!S.hands.every(arr) || !S.discards.every(arr)) return false;
-      const all = [S.ind, ...S.deck, ...S.hands.flat(), ...S.discards.flat()];
+      const all = [S.ind, ...S.deck, ...S.hands.flat(), ...S.discards.flat(), ...(S.center || [])];
       if (all.length !== 106 || new Set(all.map(t => t && t.id)).size !== 106) return false;
       if (!all.every(t => t.c >= 0 && t.c <= 3 && t.n >= 1 && t.n <= 13)) return false;
       return S.hands.every((h, p) => h.length === (p === S.turn && S.phase === 'discard' && !S.over ? 15 : 14));
     } catch (e) { return false; }
   }
-  return { newDeck, isOk, face, canWin, findWin, score, validState, bestMelds, counts, arrange, LEVELS, botTake, botDiscard };
+  return { newDeck, isOk, face, canWin, findWin, score, validState, bestMelds, counts, arrange, isGroup, isPairs, rackWins, LEVELS, botTake, botDiscard };
 })();
 if (typeof module !== 'undefined') module.exports = Okey;

@@ -1,9 +1,10 @@
 (() => {
 const COLS = 16;                                                          // ıstaka: 2 satır × 16 hücre
 const FLY = [[-40, 120], [0, 150], [210, 0], [0, -150]];                  // atılan taşın geldiği yön (animasyon)
+const FIN = [[0, 200], [200, 0], [0, -170], [-200, 0]];                   // bitiren taşın ortaya geldiği yön (0: sen, 1: sağ, 2: üst, 3: sol)
 const LEVEL_NAMES = { easy: 'Kolay', normal: 'Orta', hard: 'Zor' };
 const BOTS = [null, ['🦊', 'Tilki'], ['🦉', 'Baykuş'], ['🐻', 'Ayı']];           // sağ, üst, sol
-let S = null, cur = null, timer = null, anim = null, drag = null, sel = null;   // cur: açık kayıt {id, name, created}; sel: tıklanarak seçilen taş
+let S = null, cur = null, timer = null, anim = null, drag = null, sel = null, animFin = false, hintHTML = '', hintTmr = null;   // cur: açık kayıt {id, name, created}; sel: tıklanarak seçilen taş
 const $ = id => document.getElementById(id);
 const prev = p => (p + 3) % 4, last = a => a[a.length - 1];
 
@@ -64,7 +65,7 @@ function openSave(sv) {
 }
 function save() { if (cur) Store.put({ ...cur, updated: Date.now(), state: S }); }
 function next() {
-  clearTimeout(timer); render(); anim = null; save();
+  clearTimeout(timer); render(); anim = null; animFin = false; save();
   if (!S.over && S.turn !== 0) timer = setTimeout(botPlay, 1000);
 }
 function refresh() { render(); save(); }                                  // bot zamanlayıcısına dokunmadan çiz + kaydet
@@ -74,10 +75,36 @@ function discard(p, i) {
   if (i < 0 || i >= S.hands[p].length) return false;                     // splice(-1) son taşı atardı
   const t = S.hands[p].splice(i, 1)[0];
   S.discards[p].push(t); anim = p;
-  if (Okey.canWin(S.hands[p], S.okey)) { S.over = true; S.winner = p; return true; }
   S.turn = (p + 1) % 4; S.phase = 'draw';
   // Deste bittiyse sıradaki oyuncu son atılan taşı yalnızca onunla bitirebiliyorsa alabilir; yoksa el berabere.
   if (!S.deck.length && Okey.findWin(S.hands[S.turn].concat(t), S.okey) < 0) { S.over = true; S.winner = -1; }
+  return true;
+}
+// Eli bitir: kalan son taşı ortaya at. Oyun yalnızca bu hamleyle biter; atma alanına atmak asla bitirmez.
+function finish(p, i) {
+  if (i < 0 || i >= S.hands[p].length) return false;
+  S.center = [S.hands[p].splice(i, 1)[0]]; animFin = true;
+  S.over = true; S.winner = p; return true;
+}
+// Istakadaki taşları gruplara böl: aynı satırda boşluksuz yan yana duranlar bir grup
+function rackGroups(tiles) {
+  const g = []; let grp = null, ps = -9;
+  for (const t of [...tiles].sort((a, b) => a.s - b.s)) {
+    if (grp && t.s === ps + 1 && Math.floor(t.s / COLS) === Math.floor(ps / COLS)) grp.push(t); else g.push(grp = [t]);
+    ps = t.s;
+  }
+  return g;
+}
+function flash(msg) {
+  $('hint').innerHTML = `<span class="go">${msg}</span>`;
+  clearTimeout(hintTmr); hintTmr = setTimeout(() => { $('hint').innerHTML = hintHTML; }, 2600);
+}
+function humanFinish(idx) {
+  if (idx < 0 || !S || S.over || S.turn !== 0 || S.phase !== 'discard') return false;
+  const t = S.hands[0][idx];
+  if (!Okey.rackWins(rackGroups(S.hands[0].filter(x => x !== t)), S.okey)) { flash('Eller per/seri ya da çift olarak dizili değil'); return false; }
+  sel = null; finish(0, idx); next();
+  if (typeof Sound !== 'undefined') Sound.playDiscard();
   return true;
 }
 function animateTileIn(drawnId, fromRect) {
@@ -146,7 +173,8 @@ function botPlay() {
     const d = last(S.discards[prev(p)]);
     if (d && (!S.deck.length || Okey.botTake(h, d, S.okey, lv))) takeDiscard(p); else drawDeck(p);
   }
-  discard(p, Okey.botDiscard(h, S.okey, lv));
+  const i = Okey.botDiscard(h, S.okey, lv);
+  if (Okey.canWin(h.filter((_, k) => k !== i), S.okey)) finish(p, i); else discard(p, i);   // bot eli bitirince son taşı ortaya atar
   if (typeof Sound !== 'undefined') Sound.playDiscard();
   next();
 }
@@ -166,10 +194,12 @@ function render() {
     $(id).classList.toggle('turn', S.turn === p && !S.over);
   }
   const okeyTile = { id: -1, c: S.okey.c, n: S.okey.n, fake: false };
+  const fin = S.center && S.center[0];
   $('center').innerHTML =
     `<div class="pile"><div class="stack">${S.deck.length ? `${S.deck.length > 2 ? '<div class="t back"></div><div class="t back"></div>' : ''}<div class="t back${canDraw ? ' glow' : ''}" id="deck"${canDraw ? ' draggable="true" data-k="deck" data-id="0"' : ''}></div><span class="count">${S.deck.length}</span>` : '<div class="dz"></div>'}</div><span class="label">Deste</span></div>` +
     `<div class="pile">${tileHTML(S.ind)}<span class="label">Gösterge</span></div>` +
-    `<div class="okey-info">${tileHTML(okeyTile)}<span class="label" style="margin:0">Okey</span></div>`;
+    `<div class="okey-info">${tileHTML(okeyTile)}<span class="label" style="margin:0">Okey</span></div>` +
+    (fin ? `<div class="pile">${tileHTML(fin, '', animFin ? 'fly' : '', `--fx:${FIN[S.winner][0]}px;--fy:${FIN[S.winner][1]}px`)}<span class="label">Bitiş</span></div>` : '');
   for (let p = 0; p < 4; p++) {
     const d = last(S.discards[p]), can = canDraw && p === 3;
     $('d' + p).innerHTML = d ? tileHTML(d, can ? 'disc' : '', (can ? 'glow ' : '') + (anim === p ? 'fly' : ''), `--fx:${FLY[p][0]}px;--fy:${FLY[p][1]}px`) : '';
@@ -182,13 +212,14 @@ function render() {
     r += '</div>';
   }
   $('rack').innerHTML = r;
-  const hint = S.over ? '' : canDraw ? 'Sıra sende: desteye ya da soldaki taşa tıkla' : canDisc ? (w >= 0 ? 'Parlayan taşı atarsan eli bitiriyorsun!' : 'Bir taş seç, ardından “3 kez üst üste tıkla” (ya da sürükle)')
+  const hint = S.over ? '' : canDraw ? 'Sıra sende: desteye ya da soldaki taşa tıkla' : canDisc ? (w >= 0 ? 'Elin bitiyor! Grupları diz, parlayan taşı ortaya sürükle' : 'Taşı sağ alta at; eli bitirmek için son taşı ortaya sürükle')
     : `${BOTS[S.turn][1]} oynuyor…`;
-  $('hint').innerHTML = hint ? `<span class="${mine ? 'go' : ''}">${hint}</span>` : '';
+  hintHTML = hint ? `<span class="${mine ? 'go' : ''}">${hint}</span>` : '';
+  $('hint').innerHTML = hintHTML;
   $('result').hidden = !S.over;
   if (S.over) {
     $('res-title').textContent = S.winner === 0 ? '🎉 Kazandın!' : S.winner > 0 ? `${BOTS[S.winner][0]} ${BOTS[S.winner][1]} kazandı` : 'Berabere';
-    $('res-sub').textContent = S.winner === -1 ? 'Deste bitti.' : S.winner === 0 ? 'Eli bitirdin.' : 'Bir dahaki sefere!';
+    $('res-sub').textContent = S.winner === -1 ? 'Deste bitti.' : fin && Okey.isOk(fin, S.okey) ? 'Okey atarak bitti!' : S.winner === 0 ? 'Eli bitirdin.' : 'Bir dahaki sefere!';
   }
 }
 
@@ -198,7 +229,7 @@ document.addEventListener('dragstart', e => {
   drag = { k: el.dataset.k, id: +el.dataset.id }; e.dataTransfer.setData('text/plain', 'x');
 });
 document.addEventListener('dragend', () => { drag = null; });            // ıstaka dışına bırakılırsa eski sürükleme kalmasın
-document.addEventListener('dragover', e => { if (e.target.closest('.cell, #d0')) e.preventDefault(); });
+document.addEventListener('dragover', e => { if (e.target.closest('.cell, #d0, #center')) e.preventDefault(); });
 document.addEventListener('drop', e => {
   if (!drag || !S || S.over) return;
   const { k, id } = drag; drag = null;
@@ -214,6 +245,8 @@ document.addEventListener('drop', e => {
     else if (mine && S.phase === 'draw' && k === 'disc') { humanTakeDiscard(at); }
   } else if (e.target.closest('#d0') && k === 'rack' && mine && S.phase === 'discard') {
     humanDiscard(me.findIndex(x => x.id === id));
+  } else if (e.target.closest('#center') && k === 'rack' && mine && S.phase === 'discard') {
+    humanFinish(me.findIndex(x => x.id === id));                          // son taşı ortaya at: eli bitir
   }
 });
 let multiId = null, clickHits = 0, clickTmr = null;
