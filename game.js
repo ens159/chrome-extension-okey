@@ -1,31 +1,54 @@
 (() => {
-const COLS = 16;                                                          // ıstaka: 2 satır × 16 hücre
+const COLS = 17;                                                          // ıstaka: 2 satır × 17 hücre (bir satır hiç dolmaz: en çok 15 taş)
 const FLY = [[-40, 120], [0, 150], [210, 0], [0, -150]];                  // atılan taşın geldiği yön (animasyon)
 const FIN = [[0, 200], [200, 0], [0, -170], [-200, 0]];                   // bitiren taşın ortaya geldiği yön (0: sen, 1: sağ, 2: üst, 3: sol)
 const LEVEL_NAMES = { easy: 'Kolay', normal: 'Orta', hard: 'Zor' };
-const BOTS = [null, ['🦊', 'Tilki'], ['🦉', 'Baykuş'], ['🐻', 'Ayı']];           // sağ, üst, sol
+const BOTS = [null, 'Kemal', 'Nermin', 'Rıza'];                            // sağ, üst, sol
 const WIN = new URLSearchParams(location.search).has('win');              // ayrı pencerede mi açıldık?
 let zoom = 1;                                                             // pencere modunda masanın ölçeği
 let S = null, cur = null, timer = null, anim = null, drag = null, sel = null, animFin = false, hintHTML = '', hintTmr = null;   // cur: açık kayıt {id, name, created}; sel: tıklanarak seçilen taş
 const $ = id => document.getElementById(id);
 const prev = p => (p + 3) % 4, last = a => a[a.length - 1];
 
-// ---- ıstaka hücreleri: her insan taşı bir hücre numarasına (t.s, 0..31) sahip ----
-function freeSlot() { const u = new Set(S.hands[0].map(t => t.s)); for (let i = 0; i < COLS * 2; i++) if (!u.has(i)) return i; }
-function slotFor(at) { return at != null && !S.hands[0].some(t => t.s === at) ? at : freeSlot(); }
-function layout() { S.hands[0].forEach((t, i) => t.s = (i % 2) * COLS + (i >> 1)); }
+// ---- ıstaka: sabit yuva yok. Her insan taşının satırı (t.r: 0|1) ve satırdaki yeri (t.x: 0..COLS-1, taş genişliği
+// biriminde, kesirli olabilir) var. İki taş üst üste binemez: bırakılan taş komşularını yana iter.
+const SNAP = 0.35;                                                        // komşuya bu kadar yakın bırakılırsa bitişik yapış
+const rowOf = r => S.hands[0].filter(t => t.r === r);
+// t'yi (r, x) noktasına koyunca satırdaki taşların yeni yerleri: Map(taş -> x). Durumu değiştirmez.
+function resolveRow(t, r, x) {
+  x = Math.max(0, Math.min(COLS - 1, x));
+  const others = rowOf(r).filter(o => o !== t);
+  const near = (o, side) => side < 0 ? x - o.x - 1 : o.x - x - 1;
+  for (const o of others) { if (near(o, -1) > 0 && near(o, -1) < SNAP) x = o.x + 1; else if (near(o, 1) > 0 && near(o, 1) < SNAP) x = o.x - 1; }
+  const L = others.filter(o => o.x < x).sort((a, b) => b.x - a.x);
+  const R = others.filter(o => o.x >= x).sort((a, b) => a.x - b.x);
+  const pos = new Map([[t, x]]);
+  let lim = x; for (const o of R) { lim = Math.max(o.x, lim + 1); pos.set(o, lim); }   // sağdakileri it
+  lim = x; for (const o of L) { lim = Math.min(o.x, lim - 1); pos.set(o, lim); }       // soldakileri it
+  const all = [...pos.keys()].sort((a, b) => pos.get(a) - pos.get(b));
+  lim = COLS - 1; for (let i = all.length - 1; i >= 0; i--) { const v = Math.min(pos.get(all[i]), lim); pos.set(all[i], v); lim = v - 1; }   // taşan kenarları geri sıkıştır
+  lim = 0; for (const o of all) { const v = Math.max(pos.get(o), lim); pos.set(o, v); lim = v + 1; }
+  return pos;
+}
+function place(t, r, x) { for (const [o, v] of resolveRow(t, r, x)) { o.x = v; o.r = r; } }
+// Hedef verilmezse ilk boş yere (önce üst satır) koy
+function placeFree(t) {
+  for (let r = 0; r < 2; r++) for (let x = 0; x < COLS; x++) if (!rowOf(r).some(o => o !== t && Math.abs(o.x - x) < 1)) return place(t, r, x);
+  place(t, 1, COLS - 1);
+}
+function layout() { S.hands[0].forEach((t, i) => { t.r = i % 2; t.x = i >> 1; }); }
 // Seri Diz / Çift Diz: grupları aralarında bir boşlukla soldan sağa yerleştir, sığmayan alt satıra geçer
 function arrangeRack(mode) {
   const groups = Okey.arrange(S.hands[0], S.okey, mode), rest = groups.pop();
   const place = []; let row = 0, col = 0;
   for (const g of groups) {
     if (col + g.length > COLS) { row++; col = 0; }
-    g.forEach(t => place.push([t, row * COLS + col++])); col++;
+    g.forEach(t => place.push([t, row, col++])); col++;
   }
   if (row === 0 && groups.length && rest && rest.length <= COLS) { row = 1; col = 0; }   // kalanlar alt sıraya
-  for (const t of rest || []) { if (col >= COLS) { row++; col = 0; } place.push([t, row * COLS + col++]); }
+  for (const t of rest || []) { if (col >= COLS) { row++; col = 0; } place.push([t, row, col++]); }
   if (row > 1) return layout();                                           // sığmazsa (pratikte olmaz) düz diz
-  for (const [t, s] of place) t.s = s;
+  for (const [t, r, x] of place) { t.r = r; t.x = x; }
 }
 
 // Her yeni oyunda bot zorluğunu sor. cancelable=false: vazgeçilemez (ilk açılış, açık oyun silindi)
@@ -62,7 +85,10 @@ function openSave(sv) {
   clearTimeout(timer); anim = null; sel = null;
   S = sv.state; cur = { id: sv.id, name: sv.name, created: sv.created };
   S.level = S.level || 'normal';                                          // zorluk eklenmeden önceki kayıtlar
-  if (S.hands[0].some(t => t.s == null)) layout();
+  if (S.hands[0].some(t => t.x == null)) {                                // eski kayıt: 2×16 sabit hücre (t.s) düzeni
+    if (S.hands[0].some(t => t.s == null)) layout();
+    else S.hands[0].forEach(t => { t.r = t.s >= 16 ? 1 : 0; t.x = t.s % 16; delete t.s; });
+  }
   Store.setCurrent(cur.id); showTitle(); next();
 }
 function save() { return cur ? Store.put({ ...cur, updated: Date.now(), state: S }) : Promise.resolve(); }
@@ -71,8 +97,10 @@ function next() {
   if (!S.over && S.turn !== 0) timer = setTimeout(botPlay, 1000);
 }
 function refresh() { render(); save(); }                                  // bot zamanlayıcısına dokunmadan çiz + kaydet
-function drawDeck(p, at) { const t = S.deck.pop(); if (p === 0) t.s = slotFor(at); S.hands[p].push(t); S.phase = 'discard'; }
-function takeDiscard(p, at) { const t = S.discards[prev(p)].pop(); if (p === 0) t.s = slotFor(at); S.hands[p].push(t); S.phase = 'discard'; }
+// at: {r, x} ıstakada bırakılan yer (yoksa ilk boş yer)
+function toRack(t, at) { S.hands[0].push(t); if (at) place(t, at.r, at.x); else placeFree(t); }
+function drawDeck(p, at) { const t = S.deck.pop(); if (p === 0) toRack(t, at); else S.hands[p].push(t); S.phase = 'discard'; }
+function takeDiscard(p, at) { const t = S.discards[prev(p)].pop(); if (p === 0) toRack(t, at); else S.hands[p].push(t); S.phase = 'discard'; }
 function discard(p, i) {
   if (i < 0 || i >= S.hands[p].length) return false;                     // splice(-1) son taşı atardı
   const t = S.hands[p].splice(i, 1)[0];
@@ -88,12 +116,12 @@ function finish(p, i) {
   S.center = [S.hands[p].splice(i, 1)[0]]; animFin = true;
   S.over = true; S.winner = p; return true;
 }
-// Istakadaki taşları gruplara böl: aynı satırda boşluksuz yan yana duranlar bir grup
+// Istakadaki taşları gruplara böl: aynı satırda birbirine değen (aralarında taş sığacak boşluk olmayan) taşlar bir grup
 function rackGroups(tiles) {
-  const g = []; let grp = null, ps = -9;
-  for (const t of [...tiles].sort((a, b) => a.s - b.s)) {
-    if (grp && t.s === ps + 1 && Math.floor(t.s / COLS) === Math.floor(ps / COLS)) grp.push(t); else g.push(grp = [t]);
-    ps = t.s;
+  const g = []; let grp = null, pt = null;
+  for (const t of [...tiles].sort((a, b) => a.r - b.r || a.x - b.x)) {
+    if (grp && t.r === pt.r && t.x - pt.x < 1.5) grp.push(t); else g.push(grp = [t]);
+    pt = t;
   }
   return g;
 }
@@ -125,22 +153,22 @@ function animateTileIn(drawnId, fromRect) {
     setTimeout(() => { el.style.transition = ''; el.style.zIndex = ''; }, 280);
   });
 }
-function humanDrawDeck(at) {
+function humanDrawDeck(at, dropped) {
   const src = $('deck') || $('center');
   const fromRect = src ? src.getBoundingClientRect() : null;
   drawDeck(0, at);
   const drawn = last(S.hands[0]);
   next();
-  if (drawn && fromRect) animateTileIn(drawn.id, fromRect);
+  if (drawn && fromRect && !dropped) animateTileIn(drawn.id, fromRect);
   if (typeof Sound !== 'undefined') Sound.playDraw();
 }
-function humanTakeDiscard(at) {
+function humanTakeDiscard(at, dropped) {
   const src = document.querySelector('#d3 .t') || $('d3');
   const fromRect = src ? src.getBoundingClientRect() : null;
   takeDiscard(0, at);
   const drawn = last(S.hands[0]);
   next();
-  if (drawn && fromRect) animateTileIn(drawn.id, fromRect);
+  if (drawn && fromRect && !dropped) animateTileIn(drawn.id, fromRect);
   if (typeof Sound !== 'undefined') Sound.playDraw();
 }
 function humanDiscard(idx) {
@@ -184,7 +212,7 @@ function botPlay() {
 // ---- çizim ----
 function tileHTML(t, k, cls = '', sty = '') {
   const f = Okey.face(t, S.okey);
-  return `<div class="t ${Okey.isOk(t, S.okey) ? 'ok' : ''} ${t.fake ? 'fake' : ''} ${cls}" ${k ? `draggable="true" data-k="${k}" data-id="${t.id}"` : ''} style="color:var(--c${f.c});${sty}">${t.fake ? '★' : t.n}<i></i></div>`;
+  return `<div class="t ${Okey.isOk(t, S.okey) ? 'ok' : ''} ${t.fake ? 'fake' : ''} ${cls}" ${k ? `data-k="${k}" data-id="${t.id}"` : ''} style="color:var(--c${f.c});${sty}">${t.fake ? '<span class="fk">★</span>' : t.n}<i></i></div>`;
 }
 function render() {
   const me = S.hands[0], mine = S.turn === 0 && !S.over;
@@ -192,13 +220,13 @@ function render() {
   const w = canDisc ? Okey.findWin(me, S.okey) : -1, wid = w >= 0 ? me[w].id : -1;
   for (const [id, p] of [['right', 1], ['top', 2], ['left', 3]]) {
     const thinking = S.turn === p && !S.over;
-    $(id).innerHTML = `<div class="avatar">${BOTS[p][0]}</div><div class="plate"><b>${BOTS[p][1]}</b><small>${thinking ? 'düşünüyor…' : S.hands[p].length + ' taş'}</small></div>`;
+    $(id).innerHTML = `<div class="avatar a${p}">${BOTS[p][0]}</div><div class="plate"><b>${BOTS[p]}</b><small>${thinking ? '<span class="dots">düşünüyor</span>' : S.hands[p].length + ' taş'}</small></div>`;
     $(id).classList.toggle('turn', S.turn === p && !S.over);
   }
   const okeyTile = { id: -1, c: S.okey.c, n: S.okey.n, fake: false };
   const fin = S.center && S.center[0];
   $('center').innerHTML =
-    `<div class="pile"><div class="stack">${S.deck.length ? `${S.deck.length > 2 ? '<div class="t back"></div><div class="t back"></div>' : ''}<div class="t back${canDraw ? ' glow' : ''}" id="deck"${canDraw ? ' draggable="true" data-k="deck" data-id="0"' : ''}></div><span class="count">${S.deck.length}</span>` : '<div class="dz"></div>'}</div><span class="label">Deste</span></div>` +
+    `<div class="pile"><div class="stack">${S.deck.length ? `${S.deck.length > 2 ? '<div class="t back"></div><div class="t back"></div>' : ''}<div class="t back${canDraw ? ' glow' : ''}" id="deck"${canDraw ? ' data-k="deck" data-id="0"' : ''}></div><span class="count">${S.deck.length}</span>` : '<div class="dz"></div>'}</div><span class="label">Deste</span></div>` +
     `<div class="pile">${tileHTML(S.ind)}<span class="label">Gösterge</span></div>` +
     `<div class="okey-info">${tileHTML(okeyTile)}<span class="label" style="margin:0">Okey</span></div>` +
     (fin ? `<div class="pile">${tileHTML(fin, '', animFin ? 'fly' : '', `--fx:${FIN[S.winner][0]}px;--fy:${FIN[S.winner][1]}px`)}<span class="label">Bitiş</span></div>` : '');
@@ -209,51 +237,122 @@ function render() {
   $('d0').classList.toggle('on', canDisc);
   let r = '';
   for (let row = 0; row < 2; row++) {
-    r += '<div class="rr">';
-    for (let c = 0; c < COLS; c++) { const s = row * COLS + c, t = me.find(x => x.s === s); r += `<div class="cell" data-s="${s}">${t ? tileHTML(t, 'rack', (t.id === wid ? 'win ' : '') + (t.id === sel ? 'sel' : '')) : ''}</div>`; }
+    r += `<div class="rr" data-r="${row}">`;
+    for (const t of me.filter(x => x.r === row)) r += tileHTML(t, 'rack', (t.id === wid ? 'win ' : '') + (t.id === sel ? 'sel' : ''), `left:calc(var(--cw) * ${+t.x.toFixed(3)})`);
     r += '</div>';
   }
   $('rack').innerHTML = r;
-  const hint = S.over ? '' : canDraw ? 'Sıra sende: desteye ya da soldaki taşa tıkla' : canDisc ? (w >= 0 ? 'Elin bitiyor! Grupları diz, parlayan taşı ortaya sürükle' : 'Taşı sağ alta at; eli bitirmek için son taşı ortaya sürükle')
-    : `${BOTS[S.turn][1]} oynuyor…`;
+  if (drag && drag.live) {                                                // sürüklerken bot oynayıp masa yeniden çizildiyse
+    const el = document.querySelector(`[data-k="${drag.k}"][data-id="${drag.id}"]`);
+    if (el) { el.classList.add('lifted'); drag.el = el; }
+    if (drag.at) preview(drag.k === 'rack' ? me.find(x => x.id === drag.id) : null, drag.at);
+  }
+  const hint = S.over ? '' : canDraw ? 'Sıra sende: desteden çek ya da soldaki taşı al' : canDisc ? (w >= 0 ? 'Elin bitiyor! Grupları diz, parlayan taşı ortaya sürükle' : 'Taşı sağ alta at; eli bitirmek için son taşı ortaya sürükle')
+    : `${BOTS[S.turn]} oynuyor`;
   hintHTML = hint ? `<span class="${mine ? 'go' : ''}">${hint}</span>` : '';
   $('hint').innerHTML = hintHTML;
   $('result').hidden = !S.over;
   if (S.over) {
-    $('res-title').textContent = S.winner === 0 ? '🎉 Kazandın!' : S.winner > 0 ? `${BOTS[S.winner][0]} ${BOTS[S.winner][1]} kazandı` : 'Berabere';
+    $('res-title').textContent = S.winner === 0 ? 'Kazandın!' : S.winner > 0 ? `${BOTS[S.winner]} kazandı` : 'Berabere';
     $('res-sub').textContent = S.winner === -1 ? 'Deste bitti.' : fin && Okey.isOk(fin, S.okey) ? 'Okey atarak bitti!' : S.winner === 0 ? 'Eli bitirdin.' : 'Bir dahaki sefere!';
   }
 }
 
-// ---- sürükle-bırak ----
-document.addEventListener('dragstart', e => {
-  const el = e.target.closest('[data-k]'); if (!el) return;
-  drag = { k: el.dataset.k, id: +el.dataset.id }; e.dataTransfer.setData('text/plain', 'x');
-});
-document.addEventListener('dragend', () => { drag = null; });            // ıstaka dışına bırakılırsa eski sürükleme kalmasın
-document.addEventListener('dragover', e => { if (e.target.closest('.cell, #d0, #center')) e.preventDefault(); });
-document.addEventListener('drop', e => {
-  if (!drag || !S || S.over) return;
-  const { k, id } = drag; drag = null;
-  const cell = e.target.closest('.cell'), me = S.hands[0], mine = S.turn === 0;
-  if (cell) {
-    const at = +cell.dataset.s;
-    if (k === 'rack') {                                                   // ıstakada taş taşı / yer değiştir
-      const t = me.find(x => x.id === id); if (!t) return;
-      const o = me.find(x => x.s === at && x !== t);
-      if (o) o.s = t.s; t.s = at; refresh();
-      if (typeof Sound !== 'undefined') Sound.playClick();
-    } else if (mine && S.phase === 'draw' && k === 'deck') { humanDrawDeck(at); }
-    else if (mine && S.phase === 'draw' && k === 'disc') { humanTakeDiscard(at); }
-  } else if (e.target.closest('#d0') && k === 'rack' && mine && S.phase === 'discard') {
-    humanDiscard(me.findIndex(x => x.id === id));
-  } else if (e.target.closest('#center') && k === 'rack' && mine && S.phase === 'discard') {
-    humanFinish(me.findIndex(x => x.id === id));                          // son taşı ortaya at: eli bitir
+// ---- sürükle-bırak: sol tıkla tutulan taş imleçle birlikte gider, ıstakadaki taşlar canlı olarak yer açar ----
+let justDragged = false;
+function rackTarget(e, grabX) {                                           // imleç ıstakanın neresinde? {r, x} ya da null
+  const rk = $('rack').getBoundingClientRect(), pad = 24;
+  if (e.clientX < rk.left - pad || e.clientX > rk.right + pad || e.clientY < rk.top - pad * 2 || e.clientY > rk.bottom + pad) return null;
+  const rows = [...document.querySelectorAll('#rack .rr')].map(el => el.getBoundingClientRect());
+  const r = Math.abs(e.clientY - (rows[0].top + rows[0].bottom) / 2) <= Math.abs(e.clientY - (rows[1].top + rows[1].bottom) / 2) ? 0 : 1;
+  const unit = rows[r].width / COLS;
+  return { r, x: Math.round(((e.clientX - grabX - rows[r].left) / unit) * 20) / 20 };
+}
+const NEW = { id: -1 };                                                   // desteden / yerden gelen, henüz elde olmayan taş
+const atX = x => `calc(var(--cw) * ${+x.toFixed(3)})`;
+function preview(t, at) {                                                 // bırakılınca olacak düzeni göster (durumu değiştirmeden)
+  const pos = at ? resolveRow(t || NEW, at.r, at.x) : new Map();
+  for (const o of S.hands[0]) {
+    if (o === t) continue;
+    const el = document.querySelector(`#rack .t[data-id="${o.id}"]`);
+    if (el) el.style.left = atX(pos.has(o) ? pos.get(o) : o.x);
   }
+  let g = $('rack-ghost');
+  if (!g) { g = document.createElement('div'); g.id = 'rack-ghost'; }
+  g.hidden = !at;
+  if (at) { const row = document.querySelectorAll('#rack .rr')[at.r]; if (g.parentElement !== row) row.appendChild(g); g.style.left = atX(pos.get(t || NEW)); }
+}
+document.addEventListener('pointerdown', e => {
+  if (e.button !== 0 || !S || S.over) return;
+  const el = e.target.closest('[data-k]'); if (!el) return;
+  const k = el.dataset.k, id = +el.dataset.id;
+  const rect = el.getBoundingClientRect();
+  drag = { k, id, el, sx: e.clientX, sy: e.clientY, gx: e.clientX - rect.left, gy: e.clientY - rect.top, w: rect.width, live: false, float: null };
+  e.preventDefault();
 });
+document.addEventListener('pointermove', e => {
+  if (!drag) return;
+  if (!drag.live) {
+    if (Math.hypot(e.clientX - drag.sx, e.clientY - drag.sy) < 4) return;   // küçük titreme tıklama sayılsın
+    drag.live = true;
+    const f = drag.el.cloneNode(true);
+    f.removeAttribute('id'); f.classList.remove('sel', 'glow'); f.classList.add('floating');
+    f.style.setProperty('--tw', '34px'); f.style.setProperty('--th', '47px'); f.style.setProperty('--r', '5px');
+    if (drag.k !== 'rack') { const k = 34 * zoom / drag.w; drag.gx *= k; drag.gy *= k; }   // masadaki taş ıstaka boyuna küçülür
+    document.body.appendChild(f); drag.float = f;
+    drag.el.classList.add('lifted');                                      // asıl taş yerinde görünmesin
+    document.documentElement.classList.add('dragging');
+  }
+  drag.float.style.left = `${e.clientX / zoom - drag.gx / zoom}px`;
+  drag.float.style.top = `${e.clientY / zoom - drag.gy / zoom}px`;
+  const me = S.hands[0], mine = S.turn === 0;
+  const canIn = drag.k === 'rack' || (mine && S.phase === 'draw');
+  drag.at = canIn ? rackTarget(e, drag.gx) : null;
+  drag.toDisc = drag.k === 'rack' && mine && S.phase === 'discard' && !!document.elementsFromPoint(e.clientX, e.clientY).find(x => x.id === 'd0');
+  drag.toFin = drag.k === 'rack' && mine && S.phase === 'discard' && !drag.toDisc && !drag.at && !!document.elementsFromPoint(e.clientX, e.clientY).find(x => x.id === 'center');
+  $('d0').classList.toggle('hot', drag.toDisc);
+  $('center').classList.toggle('hot', drag.toFin);
+  preview(drag.k === 'rack' ? me.find(x => x.id === drag.id) : null, drag.at);
+});
+function endDrag(e, cancel) {
+  const d = drag; drag = null;
+  if (!d || !d.live) return;
+  justDragged = true; setTimeout(() => { justDragged = false; }, 0);
+  document.documentElement.classList.remove('dragging'); $('d0').classList.remove('hot'); $('center').classList.remove('hot');
+  const g = $('rack-ghost'); if (g) g.remove();
+  const me = S.hands[0], mine = S.turn === 0;
+  const valid = !cancel && !S.over && (d.toDisc || d.toFin || (d.at && (d.k === 'rack' || (mine && S.phase === 'draw'))));
+  if (!valid) return flyBack(d);
+  if (d.toFin) { if (!humanFinish(me.findIndex(x => x.id === d.id))) flyBack(d); else d.float.remove(); return; }   // dizilmemişse taş geri döner
+  d.float.remove(); d.el.classList.remove('lifted');
+  if (d.toDisc) { humanDiscard(me.findIndex(x => x.id === d.id)); return; }
+  if (d.k === 'rack') {
+    const t = me.find(x => x.id === d.id); if (!t) return render();
+    sel = null; place(t, d.at.r, d.at.x); refresh();
+    if (typeof Sound !== 'undefined') Sound.playClick();
+  } else if (mine && S.phase === 'draw' && d.k === 'deck') humanDrawDeck(d.at, true);
+  else if (mine && S.phase === 'draw' && d.k === 'disc') humanTakeDiscard(d.at, true);
+  else render();
+}
+// Geçersiz yere bırakılan taş yumuşakça eski yerine döner
+function flyBack(d) {
+  if (S.hands[0].some(x => x.id === d.id)) preview(S.hands[0].find(x => x.id === d.id), null);   // kayan komşular geri gelsin
+  const home = d.el.isConnected ? d.el : document.querySelector(`[data-k="${d.k}"][data-id="${d.id}"]`);
+  const f = d.float, done = () => { if (!f.isConnected) return; f.remove(); if (home) home.classList.remove('lifted'); };
+  if (!home || document.documentElement.dataset.gfx === 'low') return done();
+  const r = home.getBoundingClientRect();
+  f.style.setProperty('transition', 'left .24s cubic-bezier(.2, .8, .2, 1), top .24s cubic-bezier(.2, .8, .2, 1), transform .24s, width .24s, height .24s', 'important');
+  f.style.left = `${r.left / zoom}px`; f.style.top = `${r.top / zoom}px`; f.style.transform = 'none';
+  if (d.k !== 'rack') { f.style.width = `${r.width / zoom}px`; f.style.height = `${r.height / zoom}px`; }
+  f.addEventListener('transitionend', done, { once: true });
+  setTimeout(done, 300);
+}
+document.addEventListener('pointerup', e => endDrag(e, false));
+document.addEventListener('pointercancel', e => endDrag(e, true));
+addEventListener('blur', () => endDrag(null, true));
 let multiId = null, clickHits = 0, clickTmr = null;
 document.addEventListener('click', e => {
-  if (!S || S.over) return;
+  if (!S || S.over || justDragged) return;
   const tile = e.target.closest('#rack .t');
   if (tile) {
     if (typeof Sound !== 'undefined') Sound.playClick();
