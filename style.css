@@ -182,6 +182,9 @@
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
 html { width: 760px; height: 590px; overflow: hidden; }
+/* Ayrı pencere: masa pencereye ölçeklenir (game.js fit), kenarlar koyu çuha */
+html.win { width: 100vw; height: 100vh; display: flex; align-items: center; justify-content: center; background: var(--bg2); }
+html.win body { flex: none; width: 760px; box-shadow: 0 0 40px rgba(0, 0, 0, 0.35); }
 html, body { margin: 0; padding: 0; }
 body {
   height: 590px;

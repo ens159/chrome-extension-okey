@@ -4,6 +4,8 @@ const FLY = [[-40, 120], [0, 150], [210, 0], [0, -150]];                  // at�
 const FIN = [[0, 200], [200, 0], [0, -170], [-200, 0]];                   // bitiren taşın ortaya geldiği yön (0: sen, 1: sağ, 2: üst, 3: sol)
 const LEVEL_NAMES = { easy: 'Kolay', normal: 'Orta', hard: 'Zor' };
 const BOTS = [null, ['🦊', 'Tilki'], ['🦉', 'Baykuş'], ['🐻', 'Ayı']];           // sağ, üst, sol
+const WIN = new URLSearchParams(location.search).has('win');              // ayrı pencerede mi açıldık?
+let zoom = 1;                                                             // pencere modunda masanın ölçeği
 let S = null, cur = null, timer = null, anim = null, drag = null, sel = null, animFin = false, hintHTML = '', hintTmr = null;   // cur: açık kayıt {id, name, created}; sel: tıklanarak seçilen taş
 const $ = id => document.getElementById(id);
 const prev = p => (p + 3) % 4, last = a => a[a.length - 1];
@@ -63,7 +65,7 @@ function openSave(sv) {
   if (S.hands[0].some(t => t.s == null)) layout();
   Store.setCurrent(cur.id); showTitle(); next();
 }
-function save() { if (cur) Store.put({ ...cur, updated: Date.now(), state: S }); }
+function save() { return cur ? Store.put({ ...cur, updated: Date.now(), state: S }) : Promise.resolve(); }
 function next() {
   clearTimeout(timer); render(); anim = null; animFin = false; save();
   if (!S.over && S.turn !== 0) timer = setTimeout(botPlay, 1000);
@@ -112,7 +114,7 @@ function animateTileIn(drawnId, fromRect) {
   const el = document.querySelector(`#rack .t[data-id="${drawnId}"]`);
   if (!el) return;
   const toRect = el.getBoundingClientRect();
-  const dx = fromRect.left - toRect.left, dy = fromRect.top - toRect.top;
+  const dx = (fromRect.left - toRect.left) / zoom, dy = (fromRect.top - toRect.top) / zoom;
   el.style.transform = `translate(${dx}px, ${dy}px) scale(0.92)`;
   el.style.transition = 'none';
   el.style.zIndex = '10';
@@ -153,7 +155,7 @@ function humanDiscard(idx) {
     const toEl = document.querySelector('#d0 .t');
     if (toEl) {
       const toRect = toEl.getBoundingClientRect();
-      const dx = fromRect.left - toRect.left, dy = fromRect.top - toRect.top;
+      const dx = (fromRect.left - toRect.left) / zoom, dy = (fromRect.top - toRect.top) / zoom;
       toEl.style.transform = `translate(${dx}px, ${dy}px) scale(0.95)`;
       toEl.style.transition = 'none';
       requestAnimationFrame(() => {
@@ -313,7 +315,7 @@ function smoothArrange(mode) {
   document.querySelectorAll('#rack .t[data-id]').forEach(el => {
     const p = first.get(+el.dataset.id);
     if (!p) return;
-    const c = el.getBoundingClientRect(), dx = p.left - c.left, dy = p.top - c.top;
+    const c = el.getBoundingClientRect(), dx = (p.left - c.left) / zoom, dy = (p.top - c.top) / zoom;
     if (Math.abs(dx) > 1 || Math.abs(dy) > 1) {
       el.style.transform = `translate(${dx}px, ${dy}px)`;
       el.style.transition = 'none';
@@ -362,7 +364,34 @@ if (typeof Sound !== 'undefined') {
   Sound.init();
   updateSoundIcons();
 }
+// ---- ayrı pencere: başka işle uğraşırken oyun yanda açık kalabilsin ----
+async function gameWindow() {                                             // açık oyun penceresinin id'si (yoksa null)
+  if (!chrome.runtime || !chrome.runtime.getContexts) return null;
+  const ctx = await chrome.runtime.getContexts({ contextTypes: ['TAB'] });
+  const c = ctx.find(x => x.documentUrl && new URL(x.documentUrl).searchParams.has('win'));
+  return c ? c.windowId : null;
+}
+async function popOut() {
+  clearTimeout(timer); await save();                                      // pencere kaldığı yerden devam etsin
+  const id = await gameWindow();
+  if (id != null) await chrome.windows.update(id, { focused: true });
+  else await chrome.windows.create({ url: chrome.runtime.getURL('game.html?win=1'), type: 'popup', width: 800, height: 660, focused: true });
+  window.close();
+}
+function fit() {                                                          // masayı pencereye sığdır
+  zoom = Math.min(innerWidth / 760, innerHeight / 590);
+  document.body.style.zoom = zoom;
+}
+if (WIN) { document.documentElement.classList.add('win'); fit(); addEventListener('resize', fit); }
+if ($('window-btn')) {
+  if (WIN || typeof chrome === 'undefined' || !chrome.windows) $('window-btn').hidden = true;
+  else $('window-btn').onclick = () => popOut().catch(() => {});
+}
 (async () => {                                                            // açılışta son oyuna kaldığı yerden devam
+  if (!WIN && typeof chrome !== 'undefined' && chrome.windows) {          // oyun zaten pencerede açıksa ona geç
+    const id = await gameWindow().catch(() => null);
+    if (id != null) { chrome.windows.update(id, { focused: true }); window.close(); return; }
+  }
   await Store.migrate(Okey.validState);
   const id = await Store.currentId(), sv = id && await Store.load(id);
   if (sv && Okey.validState(sv.state)) openSave(sv); else newGame(false);
