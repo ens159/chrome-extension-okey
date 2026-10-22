@@ -193,23 +193,37 @@ const Okey = (() => {
     });
     return { i: best < 0 ? 0 : best, v: bv };
   }
+  // Seviye profilleri: her seviyede bir miktar şans payı var, en iyi bot bile ara sıra yanılır.
+  //  see:    bitiren taşı / bitiren atışı fark etme olasılığı
+  //  slip:   "dalgınlık": hesap yapmadan zayıf taşlardan rastgele birini atma olasılığı
+  //  noise:  taş puanlarına eklenen rastgele sapma (büyüdükçe kararlar şansa kalır)
+  //  greed:  işe yarar görünen yerdeki taşı gerçekten alma olasılığı
+  const PROFILE = {
+    easy:   { see: 0.6,  slip: 0.5,  noise: 3,   greed: 0 },
+    normal: { see: 0.85, slip: 0.2,  noise: 1.5, greed: 0.6 },
+    hard:   { see: 0.88, slip: 0.3,  noise: 1,   greed: 0.55 },
+  };
+  const prof = level => PROFILE[level] || PROFILE.normal;
+  const chance = p => Math.random() < p;
   // Çekme aşaması: soldan atılan taşı (d) alsın mı?
   function botTake(h, d, ok, level) {
-    if (findWin(h.concat(d), ok) >= 0) return true;                        // bitiriyorsa her seviye alır
-    if (level === 'easy') return false;
+    const P = prof(level);
+    if (findWin(h.concat(d), ok) >= 0 && chance(P.see)) return true;
+    if (!chance(P.greed)) return false;
     if (level === 'hard') return bestDiscard(h.concat(d), ok).v >= handValue(h, ok) + 1;
-    return score(d, h, ok) >= 5;
+    return score(d, h, ok) + (Math.random() - 0.5) * P.noise >= (level === 'easy' ? 6 : 5);
   }
   // Atma aşaması: atılacak taşın indeksi
   function botDiscard(h, ok, level) {
+    const P = prof(level);
     const w = findWin(h, ok);
-    if (w >= 0) return w;
-    if (level === 'hard') return bestDiscard(h, ok).i;
+    if (w >= 0 && chance(P.see)) return w;
     const cand = h.map((t, i) => i).filter(i => !isOk(h[i], ok));
-    if (level === 'easy' && Math.random() < 0.5) return cand[Math.floor(Math.random() * cand.length)];
-    let i = cand[0], best = 1e9;
-    for (const k of cand) { const sc = score(h[k], h, ok); if (sc < best) { best = sc; i = k; } }
-    return i;
+    if (!cand.length) return 0;
+    const ranked = cand.map(i => [i, score(h[i], h, ok) + Math.random() * P.noise]).sort((a, b) => a[1] - b[1]);
+    if (chance(P.slip)) return ranked[Math.floor(Math.random() * Math.min(ranked.length, level === 'easy' ? 7 : 4))][0];
+    if (level === 'hard') return bestDiscard(h, ok).i;
+    return ranked[0][0];
   }
 
   // Kayıttan yüklenen oyun durumu tutarlı mı? (106 taş, doğru el boyutları, geçerli sıra/aşama)
