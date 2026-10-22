@@ -82,30 +82,36 @@
   --card-border: rgba(0, 0, 0, 0.08);
 }
 
-:root[data-theme="retro"] {
-  --bg: #2d2340;
-  --bg2: #1a1326;
-  --text: #f3e8ff;
-  --muted: rgba(243, 232, 255, 0.62);
-  --line: rgba(255, 255, 255, 0.12);
-  --accent: #ff6ac1;
-  --accent-glow: rgba(255, 106, 193, 0.26);
-  --back-grad: linear-gradient(180deg, #4d3c5a 0%, #382b44 100%);
-  --back-edge: #1d1424;
-  --tile-grad: linear-gradient(180deg, #5c4870 0%, #4b3a5d 62%, #3f304f 100%);
-  --tile-edge: #2d2139;
-  --tile-edge2: #1f1628;
-  --tile-hi: rgba(255, 255, 255, 0.18);
-  --rack-mid: #5c406f;
-  --rack-hi: #6e5083;
-  --rack-ledge: #2c1d38;
-  --card: #2c2238;
-  --card-text: #f3e8ff;
-  --card-border: rgba(255, 255, 255, 0.12);
-  --c0: #ffd23f;
-  --c1: #3fc1ff;
-  --c2: #f4f0fa;
-  --c3: #ff5a36;
+:root[data-theme="oak"] {
+  /* Deneme: parlak açık meşe ıstaka, pirinç uçlar, beyaz plastik taşlar, canlı mobil oyun renkleri */
+  --bg: #2467a8;
+  --bg2: #133f70;
+  --bar: rgba(8, 26, 52, 0.35);
+  --surface: rgba(6, 22, 46, 0.32);
+  --surface-hi: rgba(6, 22, 46, 0.5);
+  --text: #f4f8fd;
+  --muted: rgba(244, 248, 253, 0.7);
+  --line: rgba(255, 255, 255, 0.14);
+  --accent: #ffc531;
+  --accent-glow: rgba(255, 197, 49, 0.35);
+  --ok: #d8262b;
+  --tile-grad: linear-gradient(180deg, #ffffff 0%, #fbfbf9 55%, #eeeeea 100%);
+  --tile-edge: #d9d9d3;
+  --tile-edge2: #bdbdb5;
+  --tile-hi: #ffffff;
+  --back-grad: linear-gradient(180deg, #d8262b 0%, #b51c21 100%);
+  --back-edge: #7e1216;
+  --rack-mid: #c9935a;
+  --rack-hi: #e6bd84;
+  --rack-ledge: #93602f;
+  --brass: linear-gradient(90deg, #8a6420 0%, #e9c766 35%, #fbe8a6 50%, #d4ac48 70%, #7d5a1c 100%);
+  --card: #10325a;
+  --card-text: #f4f8fd;
+  --card-border: rgba(255, 255, 255, 0.14);
+  --c0: #f2a900; /* altın sarı */
+  --c1: #1769e0; /* canlı mavi */
+  --c2: #2b3440; /* koyu arduvaz */
+  --c3: #e0242b; /* kırmızı */
 }
 
 * { box-sizing: border-box; }
@@ -569,3 +575,94 @@ html.dragging, html.dragging * { cursor: grabbing !important; }
   background: radial-gradient(60% 55% at 50% 45%, rgba(255, 255, 255, 0.06), transparent 70%);
 }
 
+/* ---- Meşe (deneme teması) ---- */
+:root[data-theme="oak"] .t { font-family: "Helvetica Neue", Arial, system-ui, sans-serif; font-weight: 800; }
+:root[data-theme="oak"] #rack {
+  position: relative;
+  padding: 8px 24px 0;
+  border-radius: 6px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.35) 0%, rgba(255, 255, 255, 0.06) 18%, transparent 40%, rgba(0, 0, 0, 0.1) 100%),
+    var(--grain),
+    linear-gradient(180deg, var(--rack-hi) 0%, var(--rack-mid) 60%, #b98247 100%);
+  background-size: auto, 100% 100%, auto;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5), inset 0 -2px 0 rgba(0, 0, 0, 0.12), 0 10px 18px rgba(0, 0, 0, 0.35), 0 2px 4px rgba(0, 0, 0, 0.25);
+}
+/* pirinç uç kapakları ve perçinler */
+:root[data-theme="oak"] #rack::before,
+:root[data-theme="oak"] #rack::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 15px;
+  background:
+    radial-gradient(circle at 50% 50%, #fff7d6 0 1px, #c99a35 1.6px, #6e4f14 3px, transparent 3.6px) 50% 22% / 100% 50% no-repeat,
+    radial-gradient(circle at 50% 50%, #fff7d6 0 1px, #c99a35 1.6px, #6e4f14 3px, transparent 3.6px) 50% 78% / 100% 50% no-repeat,
+    var(--brass);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6), inset 0 -1px 0 rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(80, 55, 10, 0.5);
+}
+:root[data-theme="oak"] #rack::before { left: 0; border-radius: 6px 2px 2px 6px; }
+:root[data-theme="oak"] #rack::after { right: 0; border-radius: 2px 6px 6px 2px; }
+:root[data-theme="oak"] .rr { border-bottom-color: var(--rack-ledge); box-shadow: 0 1px 0 rgba(255, 255, 255, 0.35), inset 0 -3px 4px rgba(0, 0, 0, 0.12); }
+:root[data-theme="oak"] .t:not(.back) {
+  box-shadow:
+    inset 0 1px 0 #fff,
+    inset 0 -1px 0 rgba(0, 0, 0, 0.04),
+    0 1px 0 var(--tile-edge),
+    0 2.5px 0 var(--tile-edge2);
+}
+/* sahte okey: kırmızı iç içe halka */
+:root[data-theme="oak"] .t.fake .fk {
+  font-size: 0;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: radial-gradient(circle, #e0242b 0 18%, #fff 19% 36%, #e0242b 37% 56%, #fff 57% 74%, #e0242b 75% 100%);
+}
+/* okey taşı: numaranın altında kırmızı hedef işareti */
+:root[data-theme="oak"] .t.ok::after { content: none; }
+:root[data-theme="oak"] .t.back::before { border-color: rgba(255, 255, 255, 0.35); }
+:root[data-theme="oak"] .dz { background: rgba(6, 22, 46, 0.22); }
+/* gölge taşla birlikte anında hareket etsin: ayrı gölge geçişi yok */
+:root[data-theme="oak"] .t,
+:root[data-theme="oak"] #rack .t { transition: left .16s cubic-bezier(.2, .8, .2, 1); }
+:root[data-theme="oak"] .t.win:not(.back) { box-shadow: 0 0 0 2px var(--accent), 0 0 12px var(--accent-glow), 0 2.5px 0 var(--tile-edge2); }
+:root[data-theme="oak"] .t.floating { box-shadow: inset 0 1px 0 #fff, 0 1px 0 var(--tile-edge), 0 2.5px 0 var(--tile-edge2) !important; }
+/* sayının altındaki oyuk: gerçek taştaki gibi içeri basık bir yuva, ortasında renkli nokta */
+:root[data-theme="oak"] .t { justify-content: flex-start; padding-top: calc(var(--th) * 0.14); gap: calc(var(--th) * 0.07); }
+:root[data-theme="oak"] .t:not(.back) i {
+  position: relative;
+  width: calc(var(--tw) * 0.56);
+  height: calc(var(--th) * 0.24);
+  border-radius: 45% / 55%;
+  opacity: 1;
+  background: linear-gradient(180deg, #dcdcd6 0%, #ebebe6 55%, #f6f6f3 100%);
+  box-shadow: inset 0 1.5px 2px rgba(0, 0, 0, 0.22), inset 0 -1px 0 rgba(255, 255, 255, 0.9), 0 1px 0 rgba(255, 255, 255, 0.8);
+}
+:root[data-theme="oak"] .t:not(.back) i::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 5px;
+  height: 5px;
+  margin: -2.5px 0 0 -2.5px;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.25);
+}
+/* okey taşı: yuvada kırmızı hedef */
+:root[data-theme="oak"] .t.ok:not(.back) i::after {
+  width: 9px;
+  height: 9px;
+  margin: -4.5px 0 0 -4.5px;
+  background: radial-gradient(circle, #e0242b 0 22%, #fff 24% 48%, #e0242b 50% 100%);
+  box-shadow: none;
+}
+/* sahte okey: halka sayının yerinde, alttaki yuva boş kalsın */
+:root[data-theme="oak"] .t.fake i { display: block; }
+:root[data-theme="oak"] .t.fake i::after { content: none; }
+:root[data-theme="oak"] .t.fake .fk { margin-top: 1px; }
+/* taş kaldırılınca arkasında düşeceği yeri gösteren koyu işaret çıkmasın */
+:root[data-theme="oak"] #rack-ghost { display: none; }
