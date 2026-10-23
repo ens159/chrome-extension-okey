@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Okey",
-  "version": "1.1",
+  "version": "1.2",
   "description": "3 bota karşı Okey",
   "permissions": [
     "storage"

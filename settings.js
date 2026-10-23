@@ -8,6 +8,7 @@ apply();
 Store.get('settings').then(r => { if (r.settings) { settings = { ...DEF, ...r.settings }; apply(); } });
 
 function apply() {
+  if (settings.theme === 'retro') settings.theme = 'oak';                 // Retro kaldırıldı, yerine Meşe denemesi
   document.documentElement.dataset.theme = settings.theme;
   document.documentElement.dataset.gfx = settings.gfx;
   document.querySelectorAll('.seg button').forEach(b => b.classList.toggle('sel', settings[b.parentElement.dataset.key] === b.dataset.v));
