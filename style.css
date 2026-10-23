@@ -338,7 +338,7 @@ html.win body { flex: none; box-shadow: 0 0 40px rgba(0, 0, 0, 0.35); }
   line-height: 1;
   letter-spacing: -.02em;
   cursor: grab;
-  transition: transform .12s cubic-bezier(.2, .8, .2, 1), box-shadow .12s;
+  transition: transform .12s cubic-bezier(.2, .8, .2, 1);
   font-variant-numeric: tabular-nums;
 }
 .t i { width: 5px; height: 5px; border-radius: 50%; background: currentColor; opacity: .85; }
@@ -396,20 +396,7 @@ html.win body { flex: none; box-shadow: 0 0 40px rgba(0, 0, 0, 0.35); }
 }
 .rr + .rr { margin-top: 6px; }
 .rr:last-child { margin-bottom: 6px; }
-#rack .t { position: absolute; top: 2px; margin-left: 1px; transition: left .16s cubic-bezier(.2, .8, .2, 1), transform .12s cubic-bezier(.2, .8, .2, 1), box-shadow .12s; }
-/* sürüklerken taşın düşeceği yer */
-#rack-ghost {
-  position: absolute;
-  top: 2px;
-  margin-left: 1px;
-  width: var(--tw);
-  height: var(--th);
-  border-radius: var(--r);
-  background: rgba(0, 0, 0, 0.2);
-  box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, 0.28);
-  transition: left .1s;
-}
-
+#rack .t { position: absolute; top: 2px; margin-left: 1px; transition: left .16s cubic-bezier(.2, .8, .2, 1), transform .12s cubic-bezier(.2, .8, .2, 1); }
 /* imleçle giden taş; asıl taş yerinde görünmez */
 .t.floating {
   position: fixed;
@@ -419,7 +406,7 @@ html.win body { flex: none; box-shadow: 0 0 40px rgba(0, 0, 0, 0.35); }
   cursor: grabbing;
   transform: scale(1.08) rotate(-2deg);
   transition: none !important;                                            /* imleci gecikmesiz izlesin (tema kuralları ezmesin) */
-  box-shadow: inset 0 1px 0 var(--tile-hi), 0 1.5px 0 var(--tile-edge), 0 3px 0 var(--tile-edge2), 0 14px 20px rgba(0, 0, 0, 0.38) !important;
+  box-shadow: inset 0 1px 0 var(--tile-hi), 0 1px 0 var(--tile-edge), 0 2.5px 0 var(--tile-edge2) !important;   /* altında düşen gölge yok */
 }
 .t.lifted { visibility: hidden; }
 html.dragging, html.dragging * { cursor: grabbing !important; }
@@ -665,4 +652,3 @@ html.dragging, html.dragging * { cursor: grabbing !important; }
 :root[data-theme="oak"] .t.fake i::after { content: none; }
 :root[data-theme="oak"] .t.fake .fk { margin-top: 1px; }
 /* taş kaldırılınca arkasında düşeceği yeri gösteren koyu işaret çıkmasın */
-:root[data-theme="oak"] #rack-ghost { display: none; }
