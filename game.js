@@ -277,10 +277,6 @@ function preview(t, at) {                                                 // bı
     const el = document.querySelector(`#rack .t[data-id="${o.id}"]`);
     if (el) el.style.left = atX(pos.has(o) ? pos.get(o) : o.x);
   }
-  let g = $('rack-ghost');
-  if (!g) { g = document.createElement('div'); g.id = 'rack-ghost'; }
-  g.hidden = !at;
-  if (at) { const row = document.querySelectorAll('#rack .rr')[at.r]; if (g.parentElement !== row) row.appendChild(g); g.style.left = atX(pos.get(t || NEW)); }
 }
 document.addEventListener('pointerdown', e => {
   if (e.button !== 0 || !S || S.over) return;
@@ -319,7 +315,6 @@ function endDrag(e, cancel) {
   if (!d || !d.live) return;
   justDragged = true; setTimeout(() => { justDragged = false; }, 0);
   document.documentElement.classList.remove('dragging'); $('d0').classList.remove('hot'); $('center').classList.remove('hot');
-  const g = $('rack-ghost'); if (g) g.remove();
   const me = S.hands[0], mine = S.turn === 0;
   const valid = !cancel && !S.over && (d.toDisc || d.toFin || (d.at && (d.k === 'rack' || (mine && S.phase === 'draw'))));
   if (!valid) return flyBack(d);
